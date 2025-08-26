@@ -77,6 +77,75 @@ function updateSyncStatus(status, type = 'info') {
     }
 }
 
+// 转换日期格式为ISO格式（PostgreSQL兼容）
+function convertDateToISO(dateStr) {
+    if (!dateStr) return null;
+    
+    // 如果已经是ISO格式，直接返回
+    if (dateStr.includes('T') && dateStr.includes('Z')) {
+        return dateStr;
+    }
+    
+    // 处理DD/MM/YYYY格式
+    if (dateStr.includes('/')) {
+        const parts = dateStr.split('/');
+        if (parts.length === 3) {
+            const day = parts[0].padStart(2, '0');
+            const month = parts[1].padStart(2, '0');
+            const year = parts[2];
+            
+            // 验证日期有效性
+            const date = new Date(year, month - 1, day);
+            if (date.getFullYear() == year && date.getMonth() == month - 1 && date.getDate() == day) {
+                return date.toISOString().split('T')[0]; // 返回YYYY-MM-DD格式
+            }
+        }
+    }
+    
+    // 尝试直接解析
+    try {
+        const date = new Date(dateStr);
+        if (!isNaN(date.getTime())) {
+            return date.toISOString().split('T')[0];
+        }
+    } catch (e) {
+        console.warn('无法转换日期格式:', dateStr);
+    }
+    
+    return null;
+}
+
+// 转换ISO日期格式为DD/MM/YYYY格式（本地显示）
+function convertISOToDisplayDate(isoDateStr) {
+    if (!isoDateStr) return '';
+    
+    try {
+        // 处理YYYY-MM-DD格式
+        if (isoDateStr.includes('-') && !isoDateStr.includes('T')) {
+            const parts = isoDateStr.split('-');
+            if (parts.length === 3) {
+                const year = parts[0];
+                const month = parts[1];
+                const day = parts[2];
+                return `${day}/${month}/${year}`;
+            }
+        }
+        
+        // 处理完整ISO格式
+        const date = new Date(isoDateStr);
+        if (!isNaN(date.getTime())) {
+            const day = date.getDate().toString().padStart(2, '0');
+            const month = (date.getMonth() + 1).toString().padStart(2, '0');
+            const year = date.getFullYear();
+            return `${day}/${month}/${year}`;
+        }
+    } catch (e) {
+        console.warn('无法转换ISO日期格式:', isoDateStr);
+    }
+    
+    return isoDateStr; // 如果转换失败，返回原始值
+}
+
 // 手动同步到云端
 async function manualSync() {
     if (!isCloudEnabled || syncInProgress) {
@@ -103,9 +172,9 @@ async function manualSync() {
             order_number: record.orderNumber || null,
             customer_name: record.customerName,
             amount: parseFloat(record.amount) || 0,
-            order_date: record.orderDate,
+            order_date: convertDateToISO(record.orderDate),
             credit_days: parseInt(record.creditDays) || 30,
-            due_date: record.dueDate,
+            due_date: convertDateToISO(record.dueDate),
             status: record.status || 'pending',
             notes: record.notes || null,
             created_at: record.createdAt || new Date().toISOString(),
@@ -206,9 +275,9 @@ async function loadFromCloud() {
             orderNumber: record.order_number,
             customerName: record.customer_name,
             amount: record.amount.toString(),
-            orderDate: record.order_date,
+            orderDate: convertISOToDisplayDate(record.order_date),
             creditDays: record.credit_days.toString(),
-            dueDate: record.due_date,
+            dueDate: convertISOToDisplayDate(record.due_date),
             status: record.status,
             notes: record.notes,
             createdAt: record.created_at,
