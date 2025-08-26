@@ -1,0 +1,485 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>收账管理系统</title>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        .table-container {
+            max-height: 600px;
+            overflow-y: auto;
+        }
+        .notification {
+            animation: slideIn 0.3s ease-out;
+        }
+        @keyframes slideIn {
+            from { transform: translateX(100%); }
+            to { transform: translateX(0); }
+        }
+        .overdue {
+            background-color: #fee2e2;
+        }
+        .due-soon {
+            background-color: #fef3c7;
+        }
+        .paid {
+            background-color: #d1fae5;
+        }
+        .editable-cell {
+            cursor: pointer;
+            transition: background-color 0.2s ease;
+        }
+        .editable-cell:hover {
+            background-color: #f3f4f6;
+            position: relative;
+        }
+        .editable-cell:hover::after {
+            content: attr(data-tooltip);
+            position: absolute;
+            top: -25px;
+            left: 50%;
+            transform: translateX(-50%);
+            background-color: #374151;
+            color: white;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-size: 10px;
+            white-space: nowrap;
+            z-index: 10;
+            opacity: 0.9;
+        }
+    </style>
+</head>
+<body class="bg-gray-100">
+    <!-- 导航栏 -->
+    <!-- 在导航栏中添加语言选择 -->
+    <nav class="bg-blue-600 text-white p-4 shadow-lg">
+        <div class="container mx-auto flex justify-between items-center">
+            <h1 class="text-2xl font-bold">
+                <i class="fas fa-money-check-alt mr-2"></i>
+                <span id="navTitle">收账管理系统</span>
+            </h1>
+            <div class="flex items-center space-x-4">
+                <button onclick="showAddModal()" class="bg-green-500 hover:bg-green-600 px-4 py-2 rounded-lg transition-colors">
+                    <i class="fas fa-plus mr-2"></i><span id="btnAdd">添加收账记录</span>
+                </button>
+                <button onclick="openChatModal()" class="bg-blue-500 hover:bg-blue-600 px-4 py-2 rounded-lg transition-colors">
+                    <i class="fas fa-comments mr-2"></i><span id="btnChat">智能对话</span>
+                </button>
+                <button onclick="showImportHelp()" class="bg-orange-500 hover:bg-orange-600 px-4 py-2 rounded-lg transition-colors">
+                    <i class="fas fa-upload mr-2"></i><span id="btnImport">批量导入</span>
+                </button>
+                <button onclick="generateReport()" class="bg-purple-500 hover:bg-purple-600 px-4 py-2 rounded-lg transition-colors">
+                    <i class="fas fa-chart-bar mr-2"></i><span id="btnReport">生成报表</span>
+                </button>
+                
+                <!-- 云同步功能 -->
+                <div class="flex items-center space-x-2 border-l border-blue-500 pl-4">
+                    <!-- 同步状态显示 -->
+                    <div class="flex items-center space-x-2">
+                        <span id="syncStatus" class="text-sm text-blue-200">未同步</span>
+                        <div id="syncIndicator" class="w-2 h-2 bg-gray-400 rounded-full"></div>
+                    </div>
+                    
+                    <!-- 手动同步按钮 -->
+                    <button onclick="manualSync()" id="syncBtn" class="bg-green-500 hover:bg-green-600 px-3 py-2 rounded-lg transition-colors text-sm">
+                        <i class="fas fa-cloud mr-1"></i><span id="btnSync">同步</span>
+                    </button>
+                    
+                    <!-- 从云端加载按钮 -->
+                    <button onclick="loadFromCloud()" id="loadBtn" class="bg-cyan-500 hover:bg-cyan-600 px-3 py-2 rounded-lg transition-colors text-sm">
+                        <i class="fas fa-cloud-download mr-1"></i><span id="btnLoad">加载</span>
+                    </button>
+                </div>
+                
+                <!-- 语言选择 -->
+                <div class="flex items-center space-x-2">
+                    <i class="fas fa-globe"></i>
+                    <select id="languageSelect" onchange="changeLanguage()" class="bg-blue-600 text-white border-0 rounded px-2 py-1 text-sm">
+                        <option value="zh">中文</option>
+                        <option value="pt">Português</option>
+                    </select>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+
+
+    <!-- 主要内容区域 -->
+    <div class="container mx-auto p-6">
+        <!-- 统计卡片 -->
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-6">
+            <div class="bg-white rounded-lg shadow-md p-6">
+                <div class="flex items-center">
+                    <div class="p-3 rounded-full bg-blue-100 text-blue-600">
+                        <i class="fas fa-coins text-2xl"></i>
+                    </div>
+                    <div class="ml-4">
+                        <p class="text-gray-500 text-sm" id="totalAmountLabel">总金额</p>
+                        <p class="text-2xl font-bold text-gray-800" id="totalAmount">¥0</p>
+                    </div>
+                </div>
+            </div>
+            <div class="bg-white rounded-lg shadow-md p-6">
+                <div class="flex items-center">
+                    <div class="p-3 rounded-full bg-green-100 text-green-600">
+                        <i class="fas fa-check-circle text-2xl"></i>
+                    </div>
+                    <div class="ml-4">
+                        <p class="text-gray-500 text-sm" id="paidAmountLabel">已收账</p>
+                        <p class="text-2xl font-bold text-gray-800" id="paidAmount">¥0</p>
+                    </div>
+                </div>
+            </div>
+            <div class="bg-white rounded-lg shadow-md p-6">
+                <div class="flex items-center">
+                    <div class="p-3 rounded-full bg-yellow-100 text-yellow-600">
+                        <i class="fas fa-clock text-2xl"></i>
+                    </div>
+                    <div class="ml-4">
+                        <p class="text-gray-500 text-sm" id="pendingAmountLabel">待收账</p>
+                        <p class="text-2xl font-bold text-gray-800" id="pendingAmount">¥0</p>
+                    </div>
+                </div>
+            </div>
+            <div class="bg-white rounded-lg shadow-md p-6">
+                <div class="flex items-center">
+                    <div class="p-3 rounded-full bg-red-100 text-red-600">
+                        <i class="fas fa-exclamation-triangle text-2xl"></i>
+                    </div>
+                    <div class="ml-4">
+                        <p class="text-gray-500 text-sm" id="overdueCountLabel">逾期</p>
+                        <p class="text-2xl font-bold text-gray-800" id="overdueCount">0</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 筛选和搜索 -->
+        <div class="bg-white rounded-lg shadow-md p-6 mb-6">
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2" id="customerSearchLabel">客户搜索</label>
+                    <input type="text" id="customerSearch" placeholder="输入客户名称" 
+                           class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                           onkeyup="filterRecords()">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2" id="statusFilterLabel">状态筛选</label>
+                    <select id="statusFilter" class="w-full px-3 py-2 border-0 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            onchange="filterRecords()">
+                        <option value="" id="allStatusOption">全部状态</option>
+                        <option value="pending" id="statusPendingOption">待收账</option>
+                        <option value="paid" id="statusPaidOption">已收账</option>
+                        <option value="overdue" id="statusOverdueOption">逾期</option>
+                        <option value="archived" id="statusArchivedOption">已归档</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2" id="dateRangeLabel">日期范围</label>
+                    <input type="date" id="dateFrom" 
+                           class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                           onchange="filterRecords()">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2" id="dateToLabel">至</label>
+                    <input type="date" id="dateTo" 
+                           class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                           onchange="filterRecords()">
+                </div>
+            </div>
+        </div>
+
+        <!-- 收账记录表格 -->
+        <div class="bg-white rounded-lg shadow-md">
+            <div class="p-6 border-b border-gray-200">
+                <h2 class="text-xl font-semibold text-gray-800" id="recordsTableTitle">
+                    <i class="fas fa-table mr-2"></i>收账记录
+                </h2>
+            </div>
+            <div class="table-container">
+                <table class="w-full">
+                    <thead class="bg-gray-50 sticky top-0">
+                        <tr>
+                            <th class="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider w-16"></th>
+                            <th id="thNF" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">NF</th>
+                            <th id="thOrderNumber" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">订单号</th>
+                            <th id="thCustomerName" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">客户名称</th>
+                            <th id="thAmount" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">金额</th>
+                            <th id="thOrderDate" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">订单日期</th>
+                            <th id="thCreditDays" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">赊账天数</th>
+                            <th id="thDueDate" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">应收日期</th>
+                            <th id="thStatus" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">状态</th>
+                            <th id="thOperations" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                操作
+                                <input type="checkbox" id="selectAll" onchange="toggleSelectAll()" class="ml-2 rounded border-gray-300 text-blue-600 focus:ring-blue-500">
+                            </th>
+                        </tr>
+                    </thead>
+                    <tbody id="recordsTable" class="bg-white divide-y divide-gray-200">
+                        <!-- 动态生成的记录 -->
+                    </tbody>
+                </table>
+            </div>
+            
+            <!-- 选中记录统计和操作 -->
+            <div class="bg-white rounded-lg shadow-md p-4 mt-4">
+                <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                    <div class="flex items-center space-x-4">
+                        <div class="text-sm text-gray-600">
+                            <span id="selectedCountLabel">已选择:</span>
+                            <span id="selectedCount" class="font-semibold text-blue-600">0</span>
+                            <span id="selectedRecordsLabel">条记录</span>
+                        </div>
+                        <div class="text-sm text-gray-600">
+                            <span id="selectedTotalLabel">选中总额:</span>
+                            <span id="selectedTotal" class="font-semibold text-green-600">R$ 0,00</span>
+                        </div>
+                    </div>
+                    <div class="flex space-x-2">
+                        <button id="generateReportBtn" onclick="generateSelectedReport()" 
+                                class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors"
+                                disabled>
+                            <i class="fas fa-file-alt mr-2"></i>
+                            <span id="generateReportLabel">生成报表</span>
+                        </button>
+                        <button id="clearSelectionBtn" onclick="clearSelection()" 
+                                class="px-4 py-2 bg-gray-500 text-white rounded-md hover:bg-gray-600 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors"
+                                disabled>
+                            <i class="fas fa-times mr-2"></i>
+                            <span id="clearSelectionLabel">清除选择</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 添加/编辑模态框 -->
+    <div id="recordModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 hidden z-50">
+        <div class="flex items-center justify-center min-h-screen p-4">
+            <div class="bg-white rounded-lg shadow-xl max-w-md w-full">
+                <div class="p-6">
+                    <div class="flex justify-between items-center mb-4">
+                        <h3 class="text-lg font-semibold text-gray-800" id="modalTitle">添加收账记录</h3>
+                        <button onclick="closeModal()" class="text-gray-400 hover:text-gray-600">
+                            <i class="fas fa-times"></i>
+                        </button>
+                    </div>
+                    <form id="recordForm">
+                        <div class="space-y-4">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2" id="nfLabel">NF</label>
+                                <input type="text" id="nf" placeholder="例如：123456（可选）"
+                                       class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2" id="orderNumberLabel">订单号</label>
+                                <input type="text" id="orderNumber" placeholder="例如：ORD001（可选）"
+                                       class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2" id="customerNameLabel">客户名称</label>
+                                <input type="text" id="customerName" required placeholder="例如：张三"
+                                       class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2" id="amountLabel">金额</label>
+                                <input type="text" id="amount" required placeholder="R$ 0,00"
+                                       class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2" id="orderDateLabel">Data do Pedido</label>
+                                <div class="relative flex items-center">
+                                    <button type="button" onclick="document.getElementById('orderDatePicker').showPicker()" 
+                                            class="flex items-center justify-center w-10 h-10 text-gray-500 hover:text-blue-600 focus:outline-none focus:text-blue-600 mr-2">
+                                        <i class="fas fa-calendar-alt text-lg"></i>
+                                    </button>
+                                    <input type="text" id="orderDate" required placeholder="DD/MM/YYYY 或 今天、明天"
+                                           class="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                           onchange="calculateDueDate()">
+                                    <input type="date" id="orderDatePicker" 
+                                           class="absolute opacity-0 pointer-events-none"
+                                           onchange="setDateFromPicker()">
+                                </div>
+                            </div>
+
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2" id="creditDaysLabel">赊账天数</label>
+                                <div class="flex space-x-2">
+                                    <select id="creditDays" onchange="calculateDueDate()"
+                                            class="flex-1 px-3 py-2 border-0 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                        <option value="30" id="creditDays30">30天</option>
+                                        <option value="60" id="creditDays60">60天</option>
+                                        <option value="90" id="creditDays90">90天</option>
+                                        <option value="custom" id="creditDaysCustom">自定义</option>
+                                    </select>
+                                    <input type="number" id="customDays" placeholder="天数" min="1" max="365"
+                                           class="w-20 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 hidden"
+                                           onchange="calculateDueDate()">
+                                </div>
+                            </div>
+
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2" id="statusLabel">状态</label>
+                                <select id="status" 
+                                        class="w-full px-3 py-2 border-0 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                    <option value="pending" id="modalStatusPending">待收账</option>
+                                    <option value="paid" id="modalStatusPaid">已收账</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="flex justify-end space-x-3 mt-6">
+                            <button type="button" onclick="closeModal()" id="cancelButton"
+                                    class="px-4 py-2 text-gray-600 border border-gray-300 rounded-md hover:bg-gray-50">
+                                取消
+                            </button>
+                            <button type="submit" id="saveButton"
+                                    class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700">
+                                保存
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 报表模态框 -->
+    <div id="reportModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 hidden z-50">
+        <div class="flex items-center justify-center min-h-screen p-4">
+            <div class="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-screen overflow-y-auto">
+                <div class="p-6">
+                    <div class="flex justify-between items-center mb-4">
+                        <h3 class="text-lg font-semibold text-gray-800">收账报表</h3>
+                        <div class="flex space-x-2">
+                            <button onclick="exportReport()" class="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700">
+                                <i class="fas fa-download mr-2"></i><span id="exportBtn">导出</span>
+                            </button>
+                            <button onclick="exportToPDF()" class="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700">
+                                <i class="fas fa-file-pdf mr-2"></i><span id="exportPdfBtn">导出PDF</span>
+                            </button>
+                            <button onclick="closeReportModal()" class="text-gray-400 hover:text-gray-600">
+                                <i class="fas fa-times"></i>
+                            </button>
+                        </div>
+                    </div>
+                    <div id="reportContent">
+                        <!-- 报表内容将在这里动态生成 -->
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 智能对话模态框 -->
+    <div id="chatModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 hidden z-50">
+        <div class="flex items-center justify-center min-h-screen p-4">
+            <div class="bg-white rounded-lg shadow-xl max-w-md w-full">
+                <div class="p-6">
+                    <div class="flex justify-between items-center mb-4">
+                        <h3 class="text-lg font-semibold text-gray-800" id="chatModalTitle">智能对话录入</h3>
+                        <button onclick="closeChatModal()" class="text-gray-400 hover:text-gray-600">
+                            <i class="fas fa-times"></i>
+                        </button>
+                    </div>
+                    <div id="chatMessages" class="h-64 overflow-y-auto border border-gray-200 rounded-md p-3 mb-4 bg-gray-50">
+                        <!-- 对话消息将在这里显示 -->
+                    </div>
+                    <div class="flex space-x-2">
+                        <input type="text" id="chatInput" placeholder="请输入消息..." 
+                               class="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                               onkeypress="handleChatKeyPress(event)">
+                        <button onclick="sendChatMessage()" class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700">
+                            <i class="fas fa-paper-plane"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 批量导入模态框 -->
+    <div id="importModal" class="fixed inset-0 bg-black bg-opacity-50 hidden z-50">
+        <div class="flex items-center justify-center min-h-screen p-4">
+            <div class="bg-white rounded-lg shadow-xl max-w-2xl w-full">
+                <div class="p-6">
+                    <div class="flex justify-between items-center mb-4">
+                        <h3 class="text-lg font-semibold text-gray-800" id="importModalTitle">批量导入</h3>
+                        <button onclick="closeImportModal()" class="text-gray-400 hover:text-gray-600">
+                            <i class="fas fa-times"></i>
+                        </button>
+                    </div>
+                    <div class="space-y-4">
+                        <p class="text-gray-600" id="importDescription">支持Excel (.xlsx, .xls) 和 CSV 文件格式</p>
+                        <div class="bg-gray-100 p-4 rounded-md">
+                            <p class="font-medium mb-2" id="templateTitle">Excel 模板格式：</p>
+                            <code>NF | Pedido | Data de Emissão | Cliente | Valor Final</code><br>
+                            <code>123456 | ORD001 | 24/08/2025 | João Silva | 1000.50</code><br>
+                            <code>123457 | ORD002 | 25/08/2025 | Maria Santos | 2500.00</code>
+                        </div>
+                        
+                        <!-- 拖拽上传区域 -->
+                        <div id="dropArea" class="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center hover:border-blue-400 transition-colors cursor-pointer">
+                            <div class="space-y-4">
+                                <div class="text-4xl text-gray-400">
+                                    <i class="fas fa-cloud-upload-alt"></i>
+                                </div>
+                                <div>
+                                    <p class="text-lg font-medium text-gray-600" id="dropText">拖拽文件到此处或点击选择文件</p>
+                                    <p class="text-sm text-gray-500" id="supportedFormats">支持 .xlsx, .xls, .csv 格式</p>
+                                </div>
+                                <button type="button" id="selectFileBtn" class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors">
+                                    <i class="fas fa-folder-open mr-2"></i><span id="selectFileText">选择文件</span>
+                                </button>
+                            </div>
+                        </div>
+                        
+                        <!-- 隐藏的文件输入 -->
+                        <input type="file" id="importFile" accept=".xlsx,.xls,.csv" class="hidden">
+                        
+                        <!-- 文件信息显示 -->
+                        <div id="fileInfo" class="hidden bg-blue-50 p-4 rounded-lg">
+                            <div class="flex items-center space-x-3">
+                                <i class="fas fa-file-excel text-green-600 text-xl"></i>
+                                <div class="flex-1">
+                                    <p class="font-medium text-gray-800" id="fileName"></p>
+                                    <p class="text-sm text-gray-600" id="fileSize"></p>
+                                </div>
+                                <button onclick="clearFile()" class="text-red-500 hover:text-red-700">
+                                    <i class="fas fa-times"></i>
+                                </button>
+                            </div>
+                        </div>
+                        
+                        <div class="flex justify-end space-x-3">
+                            <button onclick="closeImportModal()" class="px-4 py-2 text-gray-600 border border-gray-300 rounded-md hover:bg-gray-50" id="cancelBtn">
+                                取消
+                            </button>
+                            <button onclick="processImport()" class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700" id="importBtn">
+                                <i class="fas fa-upload mr-2"></i><span id="importBtnText">导入</span>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 通知容器 -->
+    <div id="notifications" class="fixed top-4 right-4 z-50 space-y-2"></div>
+
+    <!-- 添加Supabase客户端 -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <!-- 添加Supabase配置 -->
+    <script src="./config.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <script src="script.js"></script>
+</body>
+</html>
