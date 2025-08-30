@@ -28,6 +28,16 @@ function initializeSupabase() {
             console.log('Supabase客户端初始化成功');
             updateSyncStatus('已连接', 'success');
             
+            // 自动从云端加载数据
+            setTimeout(async () => {
+                try {
+                    await loadFromCloud();
+                    console.log('自动加载云端数据完成');
+                } catch (error) {
+                    console.log('自动加载云端数据失败:', error.message);
+                }
+            }, 1000); // 延迟1秒确保页面完全加载
+            
             // 启动自动同步
             if (window.SYNC_CONFIG && window.SYNC_CONFIG.autoSync) {
                 startAutoSync();
@@ -955,7 +965,10 @@ function clearForm() {
 
 // 关闭报表模态框
 function closeReportModal() {
-    document.getElementById('reportModal').classList.add('hidden');
+    const modal = document.getElementById('reportModal');
+    if (modal) {
+        document.body.removeChild(modal);
+    }
 }
 
 // 处理表单提交
@@ -1238,10 +1251,10 @@ function createRecordRow(record, index, serialNumber) {
         <td class="px-3 py-4 whitespace-nowrap text-center text-sm text-gray-500">
             ${serialNumber}
         </td>
-        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 editable-cell" data-field="nf" data-index="${index}" data-tooltip="${tooltipText}" ondblclick="editCell(this)">
+        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 editable-cell hide-mobile" data-field="nf" data-index="${index}" data-tooltip="${tooltipText}" ondblclick="editCell(this)">
             ${record.nf || '-'}
         </td>
-        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 editable-cell" data-field="orderNumber" data-index="${index}" data-tooltip="${tooltipText}" ondblclick="editCell(this)">
+        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 editable-cell hide-mobile" data-field="orderNumber" data-index="${index}" data-tooltip="${tooltipText}" ondblclick="editCell(this)">
             ${record.orderNumber || '-'}
         </td>
         <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 editable-cell" data-field="customerName" data-index="${index}" data-tooltip="${tooltipText}" ondblclick="editCell(this)">
@@ -1250,13 +1263,13 @@ function createRecordRow(record, index, serialNumber) {
         <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 editable-cell" data-field="amount" data-index="${index}" data-tooltip="${tooltipText}" ondblclick="editCell(this)">
             ${formatCurrency(record.amount)}
         </td>
-        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 editable-cell" data-field="orderDate" data-index="${index}" data-tooltip="${tooltipText}" ondblclick="editCell(this)">
+        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 editable-cell hide-mobile" data-field="orderDate" data-index="${index}" data-tooltip="${tooltipText}" ondblclick="editCell(this)">
             ${formatDate(record.orderDate) || '-'}
         </td>
-        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 editable-cell" data-field="creditDays" data-index="${index}" data-tooltip="${tooltipText}" ondblclick="editCell(this)">
+        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 editable-cell hide-mobile" data-field="creditDays" data-index="${index}" data-tooltip="${tooltipText}" ondblclick="editCell(this)">
             ${record.creditDays || '-'}${lang === 'zh' ? '天' : ' dias'}
         </td>
-        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 hide-mobile">
             ${formatDate(record.dueDate) || '-'}
             ${daysDiff < 0 && record.status !== 'paid' ? `<br><small class="text-red-600">${lang === 'zh' ? '逾期' : 'Vencido'} ${Math.abs(daysDiff)} ${lang === 'zh' ? '天' : 'dias'}</small>` : 
               daysDiff <= 3 && record.status !== 'paid' ? `<br><small class="text-yellow-600">${daysDiff} ${lang === 'zh' ? '天后到期' : 'dias para vencer'}</small>` : ''}
@@ -1265,7 +1278,7 @@ function createRecordRow(record, index, serialNumber) {
             ${statusOptions}
         </td>
         <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
-            <div class="flex items-center space-x-2">
+            <div class="action-buttons flex items-center space-x-2">
                 <button onclick="showEditModal(${index})" class="text-blue-600 hover:text-blue-900" title="${lang === 'zh' ? '编辑' : 'Editar'}">
                     <i class="fas fa-edit"></i>
                 </button>
@@ -1566,8 +1579,17 @@ function parseAmountValue(formattedValue) {
 
 // 更新统计信息
 function updateStatistics() {
-    const totalAmount = records.reduce((sum, record) => sum + record.amount, 0);
-    const paidAmount = records.filter(r => r.status === 'paid').reduce((sum, record) => sum + record.amount, 0);
+    // 确保amount字段是数字类型
+    const totalAmount = records.reduce((sum, record) => {
+        const amount = typeof record.amount === 'number' ? record.amount : parseFloat(record.amount) || 0;
+        return sum + amount;
+    }, 0);
+    
+    const paidAmount = records.filter(r => r.status === 'paid').reduce((sum, record) => {
+        const amount = typeof record.amount === 'number' ? record.amount : parseFloat(record.amount) || 0;
+        return sum + amount;
+    }, 0);
+    
     const pendingAmount = totalAmount - paidAmount;
     
     const today = new Date();
@@ -1611,9 +1633,6 @@ function checkDueDates() {
 
 // 生成报表
 function generateReport() {
-    // 先显示报表模态框
-    document.getElementById('reportModal').classList.remove('hidden');
-    
     const reportContent = document.getElementById('reportContent');
     if (!reportContent) {
         console.error('reportContent element not found');
@@ -1640,17 +1659,18 @@ function generateReport() {
         }
         
         const stats = customerStats[record.customerName];
-        stats.total += record.amount;
+        const amount = typeof record.amount === 'number' ? record.amount : parseFloat(record.amount) || 0;
+        stats.total += amount;
         stats.count++;
         
         if (record.status === 'paid') {
-            stats.paid += record.amount;
+            stats.paid += amount;
         } else {
             const dueDate = parseDDMMYYYYToDate(record.dueDate) || new Date(record.dueDate);
             if (dueDate < today) {
-                stats.overdue += record.amount;
+                stats.overdue += amount;
             } else {
-                stats.pending += record.amount;
+                stats.pending += amount;
             }
         }
     });
@@ -1665,30 +1685,30 @@ function generateReport() {
             monthlyStats[month] = { total: 0, paid: 0, pending: 0 };
         }
         
-        monthlyStats[month].total += record.amount;
+        monthlyStats[month].total += parseFloat(record.amount) || 0;
         if (record.status === 'paid') {
-            monthlyStats[month].paid += record.amount;
+            monthlyStats[month].paid += parseFloat(record.amount) || 0;
         } else {
-            monthlyStats[month].pending += record.amount;
+            monthlyStats[month].pending += parseFloat(record.amount) || 0;
         }
     });
     
-    reportContent.innerHTML = `
+    const reportHtml = `
         <div class="space-y-6">
             <!-- 总体统计 -->
             <div class="bg-gray-50 p-4 rounded-lg">
                 <h4 class="text-lg font-semibold mb-4">${texts.overallStats}</h4>
                 <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
                     <div class="text-center">
-                        <div class="text-2xl font-bold text-blue-600">${currencySymbol}${records.reduce((sum, r) => sum + r.amount, 0).toLocaleString(locale, {minimumFractionDigits: 2})}</div>
+                        <div class="text-2xl font-bold text-blue-600">${currencySymbol}${records.reduce((sum, r) => sum + (parseFloat(r.amount) || 0), 0).toLocaleString(locale, {minimumFractionDigits: 2})}</div>
                         <div class="text-sm text-gray-600">${texts.totalAmountReport}</div>
                     </div>
                     <div class="text-center">
-                        <div class="text-2xl font-bold text-green-600">${currencySymbol}${records.filter(r => r.status === 'paid').reduce((sum, r) => sum + r.amount, 0).toLocaleString(locale, {minimumFractionDigits: 2})}</div>
+                        <div class="text-2xl font-bold text-green-600">${currencySymbol}${records.filter(r => r.status === 'paid').reduce((sum, r) => sum + (parseFloat(r.amount) || 0), 0).toLocaleString(locale, {minimumFractionDigits: 2})}</div>
                         <div class="text-sm text-gray-600">${texts.paidAmountReport}</div>
                     </div>
                     <div class="text-center">
-                        <div class="text-2xl font-bold text-yellow-600">${currencySymbol}${records.filter(r => r.status !== 'paid').reduce((sum, r) => sum + r.amount, 0).toLocaleString(locale, {minimumFractionDigits: 2})}</div>
+                        <div class="text-2xl font-bold text-yellow-600">${currencySymbol}${records.filter(r => r.status !== 'paid').reduce((sum, r) => sum + (parseFloat(r.amount) || 0), 0).toLocaleString(locale, {minimumFractionDigits: 2})}</div>
                         <div class="text-sm text-gray-600">${texts.pendingAmountReport}</div>
                     </div>
                     <div class="text-center">
@@ -1758,9 +1778,10 @@ function generateReport() {
                 </div>
             </div>
         </div>
-    `;
+    `;    
     
-    document.getElementById('reportModal').classList.remove('hidden');
+    // 使用showReportModal显示报表
+    showReportModal(reportHtml);
 }
 
 // 智能对话功能
@@ -2876,13 +2897,7 @@ function showReportModal(reportHtml) {
     });
 }
 
-// 关闭报表模态框
-function closeReportModal() {
-    const modal = document.getElementById('reportModal');
-    if (modal) {
-        document.body.removeChild(modal);
-    }
-}
+
 
 // 打印报表
 function printReport() {
