@@ -205,6 +205,8 @@ async function manualSync() {
             due_date: convertDateToISO(record.dueDate),
             status: record.status || 'pending',
             notes: record.notes || null,
+            paid_amount: parseFloat(record.paidAmount) || 0,
+            payments: record.payments || [],
             created_at: record.createdAt || new Date().toISOString(),
             updated_at: new Date().toISOString()
         }));
@@ -308,6 +310,8 @@ async function loadFromCloud() {
             dueDate: convertISOToDisplayDate(record.due_date),
             status: record.status,
             notes: record.notes,
+            paidAmount: record.paid_amount || 0,
+            payments: record.payments || [],
             createdAt: record.created_at,
             updatedAt: record.updated_at
         }));

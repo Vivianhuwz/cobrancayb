@@ -56,14 +56,16 @@
 <body class="bg-gray-100 pt-36">
     <!-- 导航栏 -->
     <!-- 在导航栏中添加语言选择 -->
-    <nav class="bg-white text-gray-800 p-4 shadow-lg border-b fixed top-0 left-0 right-0 z-50">
-        <div class="container mx-auto navbar">
+    <nav class="bg-white text-gray-800 p-4 shadow-lg border-b fixed top-0 left-0 right-0 z-50"> 
+        <div class="container mx-w-2xl mx-auto"> 
             <div class="button-group">
                 <!-- 公司LOGO和小程序标题 -->
-                <div class="flex items-center text-blue-600 px-4 py-2">
-                    <img src="YOUBAI.png" alt="YOUBAI Logo" class="h-10 w-auto mr-3">
-                    <i class="fas fa-calculator text-xl mr-2"></i>
-                    <span class="text-lg font-semibold text-gray-800" id="appTitle">账目管理</span>
+                <div class="flex flex-col items-center text-blue-600 px-4 py-2">
+                    <img src="YOUBAI.png" alt="YOUBAI Logo" class="h-12 w-auto mb-2">
+                    <div class="flex items-center">
+                        <i class="fas fa-calculator text-sm mr-2"></i>
+                        <span class="text-sm font-semibold text-gray-800" id="appTitle">Cobrança</span>
+                    </div>
                 </div>
                 <button onclick="showAddModal()" class="text-green-500 hover:text-green-600 px-4 py-2 transition-colors">
                     <i class="fas fa-plus mr-2"></i><span id="btnAdd">收账记录</span>
