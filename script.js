@@ -1633,11 +1633,6 @@ function checkDueDates() {
 
 // 生成报表
 function generateReport() {
-    const reportContent = document.getElementById('reportContent');
-    if (!reportContent) {
-        console.error('reportContent element not found');
-        return;
-    }
     const today = new Date();
     const currentLang = localStorage.getItem('selectedLanguage') || 'pt';
     const texts = uiTexts[currentLang];
