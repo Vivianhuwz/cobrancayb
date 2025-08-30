@@ -6,6 +6,7 @@
     <title>收账管理系统</title>
     <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <link href="responsive.css" rel="stylesheet">
     <style>
         .table-container {
             max-height: 600px;
@@ -52,26 +53,28 @@
         }
     </style>
 </head>
-<body class="bg-gray-100">
+<body class="bg-gray-100 pt-36">
     <!-- 导航栏 -->
     <!-- 在导航栏中添加语言选择 -->
-    <nav class="bg-blue-600 text-white p-4 shadow-lg">
-        <div class="container mx-auto flex justify-between items-center">
-            <h1 class="text-2xl font-bold">
-                <i class="fas fa-money-check-alt mr-2"></i>
-                <span id="navTitle">收账管理系统</span>
-            </h1>
-            <div class="flex items-center space-x-4">
-                <button onclick="showAddModal()" class="bg-green-500 hover:bg-green-600 px-4 py-2 rounded-lg transition-colors">
-                    <i class="fas fa-plus mr-2"></i><span id="btnAdd">添加收账记录</span>
+    <nav class="bg-white text-gray-800 p-4 shadow-lg border-b fixed top-0 left-0 right-0 z-50">
+        <div class="container mx-auto navbar">
+            <div class="button-group">
+                <!-- 公司LOGO和小程序标题 -->
+                <div class="flex items-center text-blue-600 px-4 py-2">
+                    <img src="YOUBAI.png" alt="YOUBAI Logo" class="h-10 w-auto mr-3">
+                    <i class="fas fa-calculator text-xl mr-2"></i>
+                    <span class="text-lg font-semibold text-gray-800" id="appTitle">账目管理</span>
+                </div>
+                <button onclick="showAddModal()" class="text-green-500 hover:text-green-600 px-4 py-2 transition-colors">
+                    <i class="fas fa-plus mr-2"></i><span id="btnAdd">收账记录</span>
                 </button>
-                <button onclick="openChatModal()" class="bg-blue-500 hover:bg-blue-600 px-4 py-2 rounded-lg transition-colors">
+                <button onclick="openChatModal()" class="text-blue-500 hover:text-blue-600 px-4 py-2 transition-colors">
                     <i class="fas fa-comments mr-2"></i><span id="btnChat">智能对话</span>
                 </button>
-                <button onclick="showImportHelp()" class="bg-orange-500 hover:bg-orange-600 px-4 py-2 rounded-lg transition-colors">
-                    <i class="fas fa-upload mr-2"></i><span id="btnImport">批量导入</span>
+                <button onclick="showImportHelp()" class="text-yellow-500 hover:text-yellow-600 px-4 py-2 transition-colors">
+                    <i class="fas fa-upload mr-2"></i><span id="btnImport">导入</span>
                 </button>
-                <button onclick="generateReport()" class="bg-purple-500 hover:bg-purple-600 px-4 py-2 rounded-lg transition-colors">
+                <button onclick="generateReport()" class="text-purple-500 hover:text-purple-600 px-4 py-2 transition-colors">
                     <i class="fas fa-chart-bar mr-2"></i><span id="btnReport">生成报表</span>
                 </button>
                 
@@ -79,22 +82,20 @@
                 <div class="flex items-center space-x-2 border-l border-blue-500 pl-4">
                     <!-- 同步状态显示 -->
                     <div class="flex items-center space-x-2">
-                        <span id="syncStatus" class="text-sm text-blue-200">未同步</span>
+                        <span id="syncStatus" class="text-sm text-gray-600">未同步</span>
                         <div id="syncIndicator" class="w-2 h-2 bg-gray-400 rounded-full"></div>
                     </div>
                     
-
-                    
                     <!-- 从云端加载按钮 -->
-                    <button onclick="loadFromCloud()" id="loadBtn" class="bg-cyan-500 hover:bg-cyan-600 px-3 py-2 rounded-lg transition-colors text-sm">
+                    <button onclick="loadFromCloud()" id="loadBtn" class="text-blue-500 hover:text-blue-600 px-3 py-2 rounded-lg transition-colors text-sm">
                         <i class="fas fa-cloud-download mr-1"></i><span id="btnLoad">加载</span>
                     </button>
                 </div>
                 
                 <!-- 语言选择 -->
                 <div class="flex items-center space-x-2">
-                    <i class="fas fa-globe"></i>
-                    <select id="languageSelect" onchange="changeLanguage()" class="bg-blue-600 text-white border-0 rounded px-2 py-1 text-sm">
+                    <i class="fas fa-globe text-gray-600"></i>
+                    <select id="languageSelect" onchange="changeLanguage()" class="bg-gray-100 text-gray-800 rounded px-2 py-1 text-sm">
                         <option value="zh">中文</option>
                         <option value="pt">Português</option>
                     </select>
@@ -107,48 +108,137 @@
 
     <!-- 主要内容区域 -->
     <div class="container mx-auto p-6">
+        <!-- 客户管理界面 -->
+        <div id="customer-management" class="mb-8">
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <!-- 左侧：客户管理 -->
+                <div class="bg-white rounded-lg shadow-md p-6 lg:col-span-1">
+                    <div class="flex justify-between items-center mb-4">
+                        <h2 id="customerManagementTitle" class="text-xl font-semibold text-gray-800">
+                            <i class="fas fa-users mr-2"></i>客户管理
+                        </h2>
+                        <button id="add-customer-btn" onclick="showCustomerModal()" class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors">
+                            <i class="fas fa-plus mr-2"></i>添加客户
+                        </button>
+                    </div>
+                    
+                    <!-- 客户搜索 -->
+                    <div class="mb-4">
+                        <input type="text" id="customer-search" placeholder="" 
+                               class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    </div>
+                    
+                    <!-- 客户列表 -->
+                    <div id="customer-list" class="space-y-3 max-h-96 overflow-y-auto">
+                        <!-- 客户项将通过JavaScript动态生成 -->
+                    </div>
+                </div>
+                
+                <!-- 右侧：客户详情面板 -->
+                <div id="customer-details" class="bg-white rounded-lg shadow-md p-6 hidden lg:col-span-2">
+                    <!-- 客户信息和操作按钮 -->
+                    <div class="flex justify-between items-start mb-6">
+                        <div id="current-customer-info" class="flex-1">
+                            <!-- 当前选中客户信息 -->
+                        </div>
+                        
+                        <!-- 操作按钮 -->
+                        <div class="flex space-x-3 ml-6">
+                            <button id="add-order-btn" onclick="showOrderModal()" class="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors text-sm whitespace-nowrap">
+                                <i class="fas fa-plus mr-2"></i><span id="addOrderBtn">添加订单</span>
+                            </button>
+                            <button id="add-payment-btn" onclick="showPaymentModal()" class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors text-sm whitespace-nowrap">
+                                <i class="fas fa-plus mr-2"></i><span id="recordPaymentBtn">记录付款</span>
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <!-- 客户摘要统计 -->
+                    <div id="customer-summary" class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6 hidden">
+                        <div class="bg-blue-50 p-4 rounded-lg border border-blue-200">
+                            <div class="text-blue-600 text-sm font-medium" id="summaryTotalOrdersLabel">总订单金额</div>
+                            <div id="summary-total-orders" class="text-2xl font-bold text-blue-800">R$ 0</div>
+                        </div>
+                        <div class="bg-green-50 p-4 rounded-lg border border-green-200">
+                            <div class="text-green-600 text-sm font-medium" id="summaryPaidLabel">已付款金额</div>
+                            <div id="summary-paid" class="text-2xl font-bold text-green-800">R$ 0</div>
+                        </div>
+                        <div class="bg-yellow-50 p-4 rounded-lg border border-yellow-200">
+                            <div class="text-yellow-600 text-sm font-medium" id="summaryUnpaidLabel">未付款金额</div>
+                            <div id="summary-unpaid" class="text-2xl font-bold text-yellow-800">R$ 0</div>
+                        </div>
+                    </div>
+                    
+                    <!-- 订单和付款记录标签页 -->
+                    <div class="border-b border-gray-200 mb-4">
+                        <nav class="-mb-px flex space-x-8">
+                            <button onclick="showOrdersSection()" id="orders-tab" class="py-2 px-1 border-b-2 border-blue-500 font-medium text-sm text-blue-600">
+                                <span id="ordersTabLabel">订单记录</span>
+                            </button>
+                            <button onclick="showPaymentsSection()" id="payments-tab" class="py-2 px-1 border-b-2 border-transparent font-medium text-sm text-gray-500 hover:text-gray-700 hover:border-gray-300">
+                                <span id="paymentsTabLabel">付款记录</span>
+                            </button>
+                        </nav>
+                    </div>
+                    
+                    <!-- 订单列表 -->
+                    <div id="orders-section">
+                        <div id="orders-list" class="space-y-3">
+                            <!-- 订单项将通过JavaScript动态生成 -->
+                        </div>
+                    </div>
+                    
+                    <!-- 付款列表 -->
+                    <div id="payments-section" class="hidden">
+                        <div id="payments-list" class="space-y-3">
+                            <!-- 付款项将通过JavaScript动态生成 -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
         <!-- 统计卡片 -->
-        <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-6">
-            <div class="bg-white rounded-lg shadow-md p-6">
+        <div class="stats-grid">
+            <div class="bg-white rounded-lg shadow-md p-6 stat-card">
                 <div class="flex items-center">
                     <div class="p-3 rounded-full bg-blue-100 text-blue-600">
                         <i class="fas fa-coins text-2xl"></i>
                     </div>
                     <div class="ml-4">
-                        <p class="text-gray-500 text-sm" id="totalAmountLabel">总金额</p>
-                        <p class="text-2xl font-bold text-gray-800" id="totalAmount">¥0</p>
+                        <h3 class="text-gray-500 text-sm" id="totalAmountLabel">总金额</h3>
+                        <p class="text-2xl font-bold text-gray-800" id="totalAmount">R$ 0</p>
                     </div>
                 </div>
             </div>
-            <div class="bg-white rounded-lg shadow-md p-6">
+            <div class="bg-white rounded-lg shadow-md p-6 stat-card">
                 <div class="flex items-center">
                     <div class="p-3 rounded-full bg-green-100 text-green-600">
                         <i class="fas fa-check-circle text-2xl"></i>
                     </div>
                     <div class="ml-4">
-                        <p class="text-gray-500 text-sm" id="paidAmountLabel">已收账</p>
-                        <p class="text-2xl font-bold text-gray-800" id="paidAmount">¥0</p>
+                        <h3 class="text-gray-500 text-sm" id="paidAmountLabel">已收账</h3>
+                        <p class="text-2xl font-bold text-gray-800" id="paidAmount">R$ 0</p>
                     </div>
                 </div>
             </div>
-            <div class="bg-white rounded-lg shadow-md p-6">
+            <div class="bg-white rounded-lg shadow-md p-6 stat-card">
                 <div class="flex items-center">
                     <div class="p-3 rounded-full bg-yellow-100 text-yellow-600">
                         <i class="fas fa-clock text-2xl"></i>
                     </div>
                     <div class="ml-4">
-                        <p class="text-gray-500 text-sm" id="pendingAmountLabel">待收账</p>
-                        <p class="text-2xl font-bold text-gray-800" id="pendingAmount">¥0</p>
+                        <h3 class="text-gray-500 text-sm" id="pendingAmountLabel">待收账</h3>
+                        <p class="text-2xl font-bold text-gray-800" id="pendingAmount">R$ 0</p>
                     </div>
                 </div>
             </div>
-            <div class="bg-white rounded-lg shadow-md p-6">
+            <div class="bg-white rounded-lg shadow-md p-6 stat-card">
                 <div class="flex items-center">
                     <div class="p-3 rounded-full bg-red-100 text-red-600">
                         <i class="fas fa-exclamation-triangle text-2xl"></i>
                     </div>
                     <div class="ml-4">
-                        <p class="text-gray-500 text-sm" id="overdueCountLabel">逾期</p>
+                        <h3 class="text-gray-500 text-sm" id="overdueCountLabel">逾期</h3>
                         <p class="text-2xl font-bold text-gray-800" id="overdueCount">0</p>
                     </div>
                 </div>
@@ -157,7 +247,7 @@
 
         <!-- 筛选和搜索 -->
         <div class="bg-white rounded-lg shadow-md p-6 mb-6">
-            <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <div class="filter-section">
                 <div>
                     <label class="block text-sm font-medium text-gray-700 mb-2" id="customerSearchLabel">客户搜索</label>
                     <input type="text" id="customerSearch" placeholder="输入客户名称" 
@@ -202,12 +292,12 @@
                     <thead class="bg-gray-50 sticky top-0">
                         <tr>
                             <th class="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider w-16"></th>
-                            <th id="thNF" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">NF</th>
-                            <th id="thOrderNumber" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">订单号</th>
+                            <th id="thNF" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider hide-mobile">NF</th>
+                            <th id="thOrderNumber" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider hide-mobile">订单号</th>
                             <th id="thCustomerName" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">客户名称</th>
                             <th id="thAmount" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">金额</th>
-                            <th id="thOrderDate" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">订单日期</th>
-                            <th id="thCreditDays" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">赊账天数</th>
+                            <th id="thOrderDate" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider hide-mobile">订单日期</th>
+                            <th id="thCreditDays" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider hide-mobile">赊账天数</th>
                             <th id="thDueDate" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">应收日期</th>
                             <th id="thStatus" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">状态</th>
                             <th id="thOperations" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -224,7 +314,7 @@
             
             <!-- 选中记录统计和操作 -->
             <div class="bg-white rounded-lg shadow-md p-4 mt-4">
-                <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                <div class="selected-stats">
                     <div class="flex items-center space-x-4">
                         <div class="text-sm text-gray-600">
                             <span id="selectedCountLabel">已选择:</span>
@@ -236,15 +326,16 @@
                             <span id="selectedTotal" class="font-semibold text-green-600">R$ 0,00</span>
                         </div>
                     </div>
-                    <div class="flex space-x-2">
+                    <div class="flex space-x-2 justify-end">
+
                         <button id="generateReportBtn" onclick="generateSelectedReport()" 
-                                class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors"
+                                class="px-4 py-2 text-blue-600 hover:text-blue-700 disabled:text-gray-400 disabled:cursor-not-allowed transition-colors"
                                 disabled>
                             <i class="fas fa-file-alt mr-2"></i>
                             <span id="generateReportLabel">生成报表</span>
                         </button>
                         <button id="clearSelectionBtn" onclick="clearSelection()" 
-                                class="px-4 py-2 bg-gray-500 text-white rounded-md hover:bg-gray-600 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors"
+                                class="px-4 py-2 text-gray-500 hover:text-gray-600 disabled:text-gray-400 disabled:cursor-not-allowed transition-colors"
                                 disabled>
                             <i class="fas fa-times mr-2"></i>
                             <span id="clearSelectionLabel">清除选择</span>
@@ -256,18 +347,18 @@
     </div>
 
     <!-- 添加/编辑模态框 -->
-    <div id="recordModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 hidden z-50">
+    <div id="recordModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 hidden z-50 modal">
         <div class="flex items-center justify-center min-h-screen p-4">
-            <div class="bg-white rounded-lg shadow-xl max-w-md w-full">
+            <div class="bg-white rounded-lg shadow-xl max-w-md w-full modal-content">
                 <div class="p-6">
                     <div class="flex justify-between items-center mb-4">
-                        <h3 class="text-lg font-semibold text-gray-800" id="modalTitle">添加收账记录</h3>
+                        <h3 class="text-lg font-semibold text-gray-800" id="modalTitle">收账记录</h3>
                         <button onclick="closeModal()" class="text-gray-400 hover:text-gray-600">
                             <i class="fas fa-times"></i>
                         </button>
                     </div>
                     <form id="recordForm">
-                        <div class="space-y-4">
+                        <div class="form-grid">
                             <div>
                                 <label class="block text-sm font-medium text-gray-700 mb-2" id="nfLabel">NF</label>
                                 <input type="text" id="nf" placeholder="例如：123456（可选）"
@@ -373,6 +464,64 @@
         </div>
     </div>
 
+    <!-- 记录付款模态框 -->
+    <div id="paymentModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 hidden z-50 modal">
+        <div class="flex items-center justify-center min-h-screen p-4">
+            <div class="bg-white rounded-lg shadow-xl max-w-md w-full modal-content">
+                <div class="p-6">
+                    <div class="flex justify-between items-center mb-4">
+                        <h3 class="text-lg font-semibold text-gray-800" id="paymentModalTitle">记录付款</h3>
+                        <button onclick="closePaymentModal()" class="text-gray-400 hover:text-gray-600">
+                            <i class="fas fa-times"></i>
+                        </button>
+                    </div>
+                    <form id="paymentForm">
+                        <div class="form-grid">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2" id="paymentRecordLabel">选择记录 <span class="text-red-500">*</span></label>
+                                <select id="paymentRecord" required class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                    <option value="">请选择要付款的记录</option>
+                                    <!-- 记录选项将通过JS动态生成 -->
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2" id="paymentDateLabel">付款日期 <span class="text-red-500">*</span></label>
+                                <input type="date" id="paymentDate" required class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2" id="paymentAmountLabel">付款金额 <span class="text-red-500">*</span></label>
+                                <input type="number" id="paymentAmount" step="0.01" min="0" required placeholder="0.00" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2" id="paymentMethodLabel">付款方式</label>
+                                <select id="paymentMethod" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                    <option value="transfer" id="paymentMethodTransferOption">银行转账</option>
+                                    <option value="cash">现金</option>
+                                    <option value="alipay">支付宝</option>
+                                    <option value="wechat">微信支付</option>
+                                    <option value="pix">PIX</option>
+                                    <option value="other">其他</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2" id="paymentRemarkLabel">备注</label>
+                <textarea id="paymentRemark" rows="2" placeholder="" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"></textarea>
+                            </div>
+                        </div>
+                        <div class="flex space-x-3 mt-6">
+                            <button type="button" onclick="closePaymentModal()" class="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-md hover:bg-gray-50 transition-colors">
+                                <span id="cancelPaymentLabel">取消</span>
+                            </button>
+                            <button type="submit" class="flex-1 px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors">
+                                <span id="savePaymentLabel">记录付款</span>
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- 智能对话模态框 -->
     <div id="chatModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 hidden z-50">
         <div class="flex items-center justify-center min-h-screen p-4">
@@ -406,7 +555,7 @@
             <div class="bg-white rounded-lg shadow-xl max-w-2xl w-full">
                 <div class="p-6">
                     <div class="flex justify-between items-center mb-4">
-                        <h3 class="text-lg font-semibold text-gray-800" id="importModalTitle">批量导入</h3>
+                        <h3 class="text-lg font-semibold text-gray-800" id="importModalTitle">导入</h3>
                         <button onclick="closeImportModal()" class="text-gray-400 hover:text-gray-600">
                             <i class="fas fa-times"></i>
                         </button>
@@ -467,6 +616,172 @@
         </div>
     </div>
 
+    <!-- 添加客户模态框 -->
+    <div id="add-customer-modal" class="fixed inset-0 bg-gray-600 bg-opacity-50 hidden z-50">
+        <div class="flex items-center justify-center min-h-screen p-4">
+            <div class="bg-white rounded-lg shadow-xl max-w-md w-full">
+                <div class="p-6">
+                    <div class="flex justify-between items-center mb-4">
+                        <h3 id="addCustomerModalTitle" class="text-lg font-semibold text-gray-800">添加客户</h3>
+                        <button onclick="hideCustomerModal()" class="text-gray-400 hover:text-gray-600">
+                            <i class="fas fa-times"></i>
+                        </button>
+                    </div>
+                    <form id="add-customer-form">
+                        <div class="space-y-4">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">客户名称 <span class="text-red-500">*</span></label>
+                                <input type="text" id="customerNameInput" required placeholder="例如：ABC贸易公司"
+                                       class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2" id="contactPersonLabel">联系人</label>
+                                <input type="text" id="customerContactInput" placeholder="例如：张经理"
+                                       class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2" id="contactPhoneLabel">联系电话</label>
+                                <input type="text" id="customerPhoneInput" placeholder="例如：138-0000-1111"
+                                       class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2" id="customerRemarkLabel">备注</label>
+                <textarea id="customerRemarkInput" rows="2" placeholder=""
+                                          class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"></textarea>
+                            </div>
+                        </div>
+                        <div class="flex space-x-3 mt-6">
+                            <button type="button" onclick="hideCustomerModal()" class="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-md hover:bg-gray-50 transition-colors">
+                                取消
+                            </button>
+                            <button id="addCustomerSubmitBtn" type="submit" class="flex-1 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors">
+                                添加客户
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 添加订单模态框 -->
+    <div id="add-order-modal" class="fixed inset-0 bg-gray-600 bg-opacity-50 hidden z-50">
+        <div class="flex items-center justify-center min-h-screen p-4">
+            <div class="bg-white rounded-lg shadow-xl max-w-md w-full">
+                <div class="p-6">
+                    <div class="flex justify-between items-center mb-4">
+                        <h3 class="text-lg font-semibold text-gray-800" id="addOrderModalTitle">添加订单</h3>
+                        <button onclick="hideOrderModal()" class="text-gray-400 hover:text-gray-600">
+                            <i class="fas fa-times"></i>
+                        </button>
+                    </div>
+                    <form id="add-order-form">
+                        <div class="space-y-4">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2" id="orderNumberModalLabel">订单号</label>
+                                <input type="text" id="orderNumberInput" placeholder="例如：PO-2024-001"
+                                       class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2" id="orderAmountModalLabel">订单金额 <span class="text-red-500">*</span></label>
+                                <input type="number" id="orderAmountInput" step="0.01" min="0" required placeholder="0.00"
+                                       class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2" id="orderDateLabel">订单日期 <span class="text-red-500">*</span></label>
+                                <input type="date" id="orderDateInput" required
+                                       class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2" id="orderDueDateLabel">预计付款日期</label>
+                                <input type="date" id="orderDueDateInput"
+                                       class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">产品信息</label>
+                                <input type="text" id="orderProductsInput" placeholder="例如：钢材 100吨"
+                                       class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2" id="orderRemarkLabel">备注</label>
+                <textarea id="orderRemarkInput" rows="2" placeholder=""
+                                          class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"></textarea>
+                            </div>
+                        </div>
+                        <div class="flex space-x-3 mt-6">
+                            <button type="button" onclick="hideOrderModal()" class="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-md hover:bg-gray-50 transition-colors">
+                                取消
+                            </button>
+                            <button type="submit" class="flex-1 px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors">
+                                <span id="addOrderSubmitBtn">添加订单</span>
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 添加付款模态框 -->
+    <div id="add-payment-modal" class="fixed inset-0 bg-gray-600 bg-opacity-50 hidden z-50">
+        <div class="flex items-center justify-center min-h-screen p-4">
+            <div class="bg-white rounded-lg shadow-xl max-w-md w-full">
+                <div class="p-6">
+                    <div class="flex justify-between items-center mb-4">
+                        <h3 class="text-lg font-semibold text-gray-800" id="recordPaymentModalTitle">记录付款</h3>
+                        <button onclick="hidePaymentModal()" class="text-gray-400 hover:text-gray-600">
+                            <i class="fas fa-times"></i>
+                        </button>
+                    </div>
+                    <form id="add-payment-form">
+                        <div class="space-y-4">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2" id="selectOrderLabel">选择订单 <span class="text-red-500">*</span></label>
+                                <select id="paymentOrderSelect" required class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                    <option value="" id="selectOrderPlaceholder">请选择订单</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2" id="paymentDateModalLabel">付款日期 <span class="text-red-500">*</span></label>
+                                <input type="date" id="paymentDateInput" required
+                                       class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2" id="paymentAmountModalLabel">付款金额 <span class="text-red-500">*</span></label>
+                                <input type="number" id="paymentAmountInput" step="0.01" min="0" required placeholder="0.00"
+                                       class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2" id="paymentMethodModalLabel">付款方式</label>
+                                <select id="paymentMethodInput" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                    <option value="transfer" id="paymentMethodTransferOption2">银行转账</option>
+                                    <option value="cash">现金</option>
+                                    <option value="alipay">支付宝</option>
+                                    <option value="wechat">微信支付</option>
+                                    <option value="pix">PIX</option>
+                                    <option value="other">其他</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2" id="paymentRemarkInputLabel">备注</label>
+                <textarea id="paymentRemarkInput" rows="2" placeholder=""
+                                          class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"></textarea>
+                            </div>
+                        </div>
+                        <div class="flex space-x-3 mt-6">
+                            <button type="button" onclick="hidePaymentModal()" class="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-md hover:bg-gray-50 transition-colors">
+                                取消
+                            </button>
+                            <button type="submit" class="flex-1 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors">
+                                <span id="recordPaymentSubmitBtn">记录付款</span>
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- 通知容器 -->
     <div id="notifications" class="fixed top-4 right-4 z-50 space-y-2"></div>
 
@@ -478,5 +793,8 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <script src="script.js"></script>
+    <script src="payment-functions.js"></script>
+    <script src="customer-functions.js"></script>
+    <script src="test-order-2516407.js"></script>
 </body>
 </html>

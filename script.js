@@ -64,6 +64,24 @@ function updateSyncStatus(status, type = 'info') {
     
     if (statusElement) {
         statusElement.textContent = status;
+        // 重置文字颜色类
+        statusElement.className = 'text-sm';
+        switch (type) {
+            case 'success':
+                statusElement.classList.add('text-green-600');
+                break;
+            case 'error':
+                statusElement.classList.add('text-red-600');
+                break;
+            case 'warning':
+                statusElement.classList.add('text-yellow-600');
+                break;
+            case 'syncing':
+                statusElement.classList.add('text-blue-600');
+                break;
+            default:
+                statusElement.classList.add('text-gray-600');
+        }
     }
     
     if (indicatorElement) {
@@ -351,9 +369,10 @@ function stopAutoSync() {
 const uiTexts = {
     zh: {
         navTitle: '收账管理系统',
-        btnAdd: '添加收账记录',
+        appTitle: '账目管理',
+        btnAdd: '收账记录',
         btnChat: '智能对话',
-        btnImport: '批量导入',
+        btnImport: '导入',
         btnReport: '总结',
         thOrderNumber: '订单号',
         customerName: '客户名称',
@@ -384,7 +403,7 @@ const uiTexts = {
         dateTo: '至',
         recordsTable: '收账记录',
         // 表单相关
-        modalTitle: '添加收账记录',
+        modalTitle: '收账记录',
         modalTitleEdit: '编辑收账记录',
         nfLabel: 'NF',
         orderNumberLabel: '订单号',
@@ -402,15 +421,43 @@ const uiTexts = {
         nfPlaceholder: '例如：123456（可选）',
         orderNumberPlaceholder: '例如：ORD001（可选）',
         customerNamePlaceholder: '例如：张三',
-        amountPlaceholder: '¥ 0.00',
+        amountPlaceholder: 'R$ 0,00',
         orderDatePlaceholder: 'DD/MM/YYYY 或 今天、明天',
-        customDaysPlaceholder: '天数'
+        customDaysPlaceholder: '天数',
+        // 付款模态框
+        paymentModalTitle: '记录付款',
+        paymentRecordLabel: '选择记录',
+        paymentDateLabel: '付款日期',
+        paymentAmountLabel: '付款金额',
+        paymentMethodLabel: '付款方式',
+        paymentRemarkLabel: '备注',
+        cancelPaymentLabel: '取消',
+        savePaymentLabel: '记录付款',
+        selectRecordPlaceholder: '请选择要付款的记录',
+        paymentAmountPlaceholder: '0.00',
+        paymentRemarkPlaceholder: '添加付款备注信息...',
+        // 付款方式选项
+        paymentMethodTransfer: '银行转账',
+        paymentMethodCash: '现金',
+        paymentMethodAlipay: '支付宝',
+        paymentMethodWechat: '微信支付',
+        paymentMethodPix: 'PIX',
+        paymentMethodOther: '其他',
+        // 付款通知消息
+        recordNotFound: '记录不存在',
+        recordAlreadyPaid: '该记录已经付款完成',
+        selectRecordsFirst: '请先选择要记录付款的记录',
+        fillRequiredFields: '请填写所有必填字段并确保金额有效',
+        recordNotFoundError: '找不到对应的记录',
+        paymentExceedsRemaining: '付款金额不能超过剩余未付金额',
+        paymentRecordSuccess: '付款记录添加成功'
     },
     pt: {
         navTitle: 'Sistema de Gestão de Cobrança',
-        btnAdd: 'Adicionar Registro',
+        appTitle: 'Cobrança',
+        btnAdd: 'Registro',
         btnChat: 'Conversa Inteligente',
-        btnImport: 'Importação em Lote',
+        btnImport: 'Importar',
         btnReport: 'Resumo',
         thOrderNumber: 'Nº DE PEDIDO',
         customerName: 'Cliente',
@@ -441,7 +488,7 @@ const uiTexts = {
         dateTo: 'até',
         recordsTable: 'Registros de Cobrança',
         // 表单相关
-        modalTitle: 'Adicionar Registro',
+        modalTitle: 'Registro',
         modalTitleEdit: 'Editar Registro',
         nfLabel: 'NF',
         orderNumberLabel: 'Nº DE PEDIDO',
@@ -462,6 +509,33 @@ const uiTexts = {
         amountPlaceholder: 'R$ 0,00',
         orderDatePlaceholder: 'DD/MM/YYYY ou hoje, amanhã',
         customDaysPlaceholder: 'dias',
+        // 付款模态框
+        paymentModalTitle: 'Registrar Pagamento',
+        paymentRecordLabel: 'Selecionar Registro',
+        paymentDateLabel: 'Data do Pagamento',
+        paymentAmountLabel: 'Valor do Pagamento',
+        paymentMethodLabel: 'Método de Pagamento',
+        paymentRemarkLabel: 'Observações',
+        cancelPaymentLabel: 'Cancelar',
+        savePaymentLabel: 'Registrar Pagamento',
+        selectRecordPlaceholder: 'Selecione o registro para pagamento',
+        paymentAmountPlaceholder: '0,00',
+        paymentRemarkPlaceholder: 'Adicionar observações do pagamento...',
+        // 付款方式选项
+        paymentMethodTransfer: 'Transferência Bancária',
+        paymentMethodCash: 'Dinheiro',
+        paymentMethodAlipay: 'Alipay',
+        paymentMethodWechat: 'WeChat Pay',
+        paymentMethodPix: 'PIX',
+        paymentMethodOther: 'Outros',
+        // 付款通知消息
+        recordNotFound: 'Registro não encontrado',
+        recordAlreadyPaid: 'Este registro já foi pago completamente',
+        selectRecordsFirst: 'Selecione primeiro os registros para pagamento',
+        fillRequiredFields: 'Preencha todos os campos obrigatórios e certifique-se de que o valor é válido',
+        recordNotFoundError: 'Registro correspondente não encontrado',
+        paymentExceedsRemaining: 'O valor do pagamento não pode exceder o valor restante não pago',
+        paymentRecordSuccess: 'Registro de pagamento adicionado com sucesso',
         // 报表相关翻译
         reportTitle: 'Relatório de Gestão de Cobrança',
         reportGeneratedTime: 'Hora de Geração',
@@ -479,7 +553,7 @@ const uiTexts = {
         collectionRateReport: 'Taxa de Cobrança',
         exportPdfBtn: 'Exportar PDF',
         // 导入相关
-        importModalTitle: 'Importação em Lote',
+        importModalTitle: 'Importar',
         importDescription: 'Suporte para formatos Excel (.xlsx, .xls) e CSV',
         templateTitle: 'Formato do modelo Excel:',
         dropText: 'Arraste o arquivo aqui ou clique para selecionar',
@@ -507,7 +581,7 @@ uiTexts.zh.recordCountReport = '笔数';
 uiTexts.zh.monthReport = '月份';
 uiTexts.zh.collectionRateReport = '收账率';
 // 导入相关
-uiTexts.zh.importModalTitle = '批量导入';
+uiTexts.zh.importModalTitle = '导入';
 uiTexts.zh.importDescription = '支持Excel (.xlsx, .xls) 和 CSV 文件格式';
 uiTexts.zh.templateTitle = 'Excel 模板格式：';
 uiTexts.zh.dropText = '拖拽文件到此处或点击选择文件';
@@ -541,27 +615,248 @@ uiTexts.pt.noLocalData = 'Nenhum dado local para sincronizar';
 uiTexts.pt.noCloudData = 'Nenhum dado na nuvem';
 uiTexts.pt.syncUnavailable = 'Sincronização em nuvem indisponível ou em progresso';
 
+// 客户管理相关葡萄牙语翻译
+uiTexts.pt.customerManagement = 'Gestão de Clientes';
+uiTexts.pt.customerList = 'Lista de Clientes';
+uiTexts.pt.customerDetails = 'Detalhes do Cliente';
+uiTexts.pt.addCustomer = 'Adicionar Cliente';
+uiTexts.pt.addOrder = 'Adicionar Pedido';
+uiTexts.pt.addPayment = 'Adicionar Pagamento';
+uiTexts.pt.customerSearch = 'Buscar Cliente';
+uiTexts.pt.customerSearchPlaceholder = 'Digite o nome do cliente, contato ou telefone';
+uiTexts.pt.noCustomerSelected = 'Selecione um cliente para ver os detalhes';
+uiTexts.pt.totalOrderAmount = 'Valor Total dos Pedidos';
+uiTexts.pt.totalPaidAmount = 'Valor Pago';
+uiTexts.pt.totalUnpaidAmount = 'Valor Não Pago';
+uiTexts.pt.ordersTab = 'Pedidos';
+uiTexts.pt.paymentsTab = 'Registros de Pagamento';
+uiTexts.pt.customerName = 'Nome do Cliente';
+uiTexts.pt.contactPerson = 'Contato';
+uiTexts.pt.contactPhone = 'Telefone';
+uiTexts.pt.customerRemark = 'Observações';
+uiTexts.pt.orderNumber = 'Número do Pedido';
+uiTexts.pt.orderDate = 'Data do Pedido';
+uiTexts.pt.orderAmount = 'Valor do Pedido';
+uiTexts.pt.orderDueDate = 'Data de Vencimento';
+uiTexts.pt.orderProducts = 'Informações do Produto';
+uiTexts.pt.orderRemark = 'Observações';
+uiTexts.pt.paymentOrder = 'Selecionar Pedido';
+uiTexts.pt.paymentDate = 'Data do Pagamento';
+uiTexts.pt.paymentAmount = 'Valor do Pagamento';
+uiTexts.pt.paymentMethod = 'Método de Pagamento';
+uiTexts.pt.paymentRemark = 'Observações';
+uiTexts.pt.addOrderModalTitle = 'Adicionar Pedido';
+uiTexts.pt.recordPaymentModalTitle = 'Registrar Pagamento';
+uiTexts.pt.addOrderBtn = 'Adicionar Pedido';
+uiTexts.pt.recordPaymentBtn = 'Registrar Pagamento';
+uiTexts.pt.ordersTabLabel = 'Registros de Pedidos';
+uiTexts.pt.paymentsTabLabel = 'Registros de Pagamento';
+uiTexts.pt.contactPersonLabel = 'Contato';
+uiTexts.pt.contactPhoneLabel = 'Telefone';
+uiTexts.pt.customerRemarkLabel = 'Observações';
+uiTexts.pt.orderRemarkLabel = 'Observações';
+uiTexts.pt.addOrderSubmitBtn = 'Adicionar Pedido';
+uiTexts.pt.recordPaymentSubmitBtn = 'Registrar Pagamento';
+uiTexts.pt.paymentRemarkInputLabel = 'Observações';
+
+// 客户管理相关文本
+uiTexts.zh.customerManagement = '客户管理';
+uiTexts.zh.customerList = '客户列表';
+uiTexts.zh.customerDetails = '客户详情';
+uiTexts.zh.addCustomer = '添加客户';
+uiTexts.zh.addOrder = '添加订单';
+uiTexts.zh.addPayment = '添加付款';
+uiTexts.zh.customerSearch = '搜索客户';
+uiTexts.zh.customerSearchPlaceholder = '输入客户名称、联系人或电话';
+uiTexts.zh.noCustomerSelected = '请选择客户查看详情';
+uiTexts.zh.totalOrderAmount = '总订单金额';
+uiTexts.zh.totalPaidAmount = '已付金额';
+uiTexts.zh.totalUnpaidAmount = '未付金额';
+uiTexts.zh.ordersTab = '订单';
+uiTexts.zh.paymentsTab = '付款记录';
+uiTexts.zh.customerName = '客户名称';
+uiTexts.zh.contactPerson = '联系人';
+uiTexts.zh.contactPhone = '联系电话';
+uiTexts.zh.customerRemark = '备注';
+uiTexts.zh.orderNumber = '订单号';
+uiTexts.zh.orderDate = '订单日期';
+uiTexts.zh.orderAmount = '订单金额';
+uiTexts.zh.orderDueDate = '预计付款日期';
+uiTexts.zh.orderProducts = '产品信息';
+uiTexts.zh.orderRemark = '备注';
+uiTexts.zh.paymentOrder = '选择订单';
+uiTexts.zh.paymentDate = '付款日期';
+uiTexts.zh.paymentAmount = '付款金额';
+uiTexts.zh.paymentMethod = '付款方式';
+uiTexts.zh.paymentRemark = '备注';
+uiTexts.zh.paymentProgress = '付款进度';
+uiTexts.zh.remainingAmount = '余额';
+uiTexts.zh.overdue = '逾期';
+uiTexts.zh.order = '订单';
+uiTexts.zh.customerNameRequired = '客户名称';
+uiTexts.zh.contactPersonOptional = '联系人';
+uiTexts.zh.contactPhoneOptional = '联系电话';
+uiTexts.zh.customerRemarkOptional = '备注';
+uiTexts.zh.orderNumberRequired = '订单号';
+uiTexts.zh.orderDateRequired = '订单日期';
+uiTexts.zh.orderAmountRequired = '订单金额';
+uiTexts.zh.orderDueDateOptional = '预计付款日期';
+uiTexts.zh.orderProductsRequired = '产品信息';
+uiTexts.zh.orderRemarkOptional = '备注';
+uiTexts.zh.paymentOrderRequired = '选择订单';
+uiTexts.zh.paymentDateRequired = '付款日期';
+uiTexts.zh.paymentAmountRequired = '付款金额';
+uiTexts.zh.paymentMethodOptional = '付款方式';
+uiTexts.zh.paymentRemarkOptional = '备注';
+uiTexts.zh.customerNamePlaceholder = '请输入客户名称';
+uiTexts.zh.contactPersonPlaceholder = '请输入联系人姓名';
+uiTexts.zh.contactPhonePlaceholder = '请输入联系电话';
+uiTexts.zh.customerRemarkPlaceholder = '请输入备注信息';
+uiTexts.zh.orderNumberPlaceholder = '请输入订单号';
+uiTexts.zh.orderAmountPlaceholder = '0.00';
+uiTexts.zh.orderProductsPlaceholder = '请输入产品信息';
+uiTexts.zh.orderRemarkPlaceholder = '请输入备注信息';
+uiTexts.zh.paymentOrderPlaceholder = '请选择订单';
+uiTexts.zh.paymentAmountPlaceholder = '0.00';
+uiTexts.zh.paymentRemarkPlaceholder = '请输入备注信息';
+uiTexts.zh.addCustomerModalTitle = '添加客户';
+uiTexts.zh.addOrderModalTitle = '添加订单';
+uiTexts.zh.addPaymentModalTitle = '添加付款';
+uiTexts.zh.cancelCustomerBtn = '取消';
+uiTexts.zh.saveCustomerBtn = '保存';
+uiTexts.zh.cancelOrderBtn = '取消';
+uiTexts.zh.saveOrderBtn = '保存';
+uiTexts.zh.cancelPaymentModalBtn = '取消';
+uiTexts.zh.savePaymentModalBtn = '保存';
+uiTexts.zh.customerAddedSuccess = '客户添加成功';
+uiTexts.zh.orderAddedSuccess = '订单添加成功';
+uiTexts.zh.paymentAddedSuccess = '付款记录添加成功';
+uiTexts.zh.selectCustomerFirst = '请先选择客户';
+uiTexts.zh.selectValidOrder = '请选择有效订单';
+uiTexts.zh.paymentExceedsRemaining = '付款金额不能超过剩余金额';
+uiTexts.zh.ordersCount = '个订单';
+uiTexts.zh.paidLabel = '已付';
+uiTexts.zh.products = '产品';
+uiTexts.zh.accountingRecords = '收账记录';
+uiTexts.zh.accountingRecordsTab = '收账记录';
+uiTexts.zh.accountingInfo = '收账记录信息';
+uiTexts.zh.totalRecords = '记录总数';
+uiTexts.zh.overdueAmount = '逾期金额';
+uiTexts.zh.balance = '余额';
+
+uiTexts.pt.customerList = 'Lista de Clientes';
+uiTexts.pt.customerDetails = 'Detalhes do Cliente';
+uiTexts.pt.addCustomer = 'Adicionar Cliente';
+uiTexts.pt.addOrder = 'Adicionar Pedido';
+uiTexts.pt.addPayment = 'Adicionar Pagamento';
+uiTexts.pt.customerSearch = 'Buscar Cliente';
+uiTexts.pt.customerSearchPlaceholder = 'Digite nome, contato ou telefone';
+uiTexts.pt.noCustomerSelected = 'Selecione um cliente para ver detalhes';
+uiTexts.pt.totalOrderAmount = 'Valor Total dos Pedidos';
+uiTexts.pt.totalPaidAmount = 'Valor Pago';
+uiTexts.pt.totalUnpaidAmount = 'Valor Não Pago';
+uiTexts.pt.ordersTab = 'Pedidos';
+uiTexts.pt.paymentsTab = 'Registros de Pagamento';
+uiTexts.pt.customerName = 'Nome do Cliente';
+uiTexts.pt.contactPerson = 'Pessoa de Contato';
+uiTexts.pt.contactPhone = 'Telefone de Contato';
+uiTexts.pt.customerRemark = 'Observações';
+uiTexts.pt.orderNumber = 'Número do Pedido';
+uiTexts.pt.orderDate = 'Data do Pedido';
+uiTexts.pt.orderAmount = 'Valor do Pedido';
+uiTexts.pt.orderDueDate = 'Data Prevista de Pagamento';
+uiTexts.pt.orderProducts = 'Informações do Produto';
+uiTexts.pt.orderRemark = 'Observações';
+uiTexts.pt.paymentOrder = 'Selecionar Pedido';
+uiTexts.pt.paymentDate = 'Data do Pagamento';
+uiTexts.pt.paymentAmount = 'Valor do Pagamento';
+uiTexts.pt.paymentMethod = 'Método de Pagamento';
+uiTexts.pt.paymentRemark = 'Observações';
+uiTexts.pt.paymentProgress = 'Progresso do Pagamento';
+uiTexts.pt.remainingAmount = 'Saldo';
+uiTexts.pt.overdue = 'Vencido';
+uiTexts.pt.order = 'Pedido';
+uiTexts.pt.customerNameRequired = 'Nome do Cliente';
+uiTexts.pt.contactPersonOptional = 'Pessoa de Contato';
+uiTexts.pt.contactPhoneOptional = 'Telefone de Contato';
+uiTexts.pt.customerRemarkOptional = 'Observações';
+uiTexts.pt.orderNumberRequired = 'Número do Pedido';
+uiTexts.pt.orderDateRequired = 'Data do Pedido';
+uiTexts.pt.orderAmountRequired = 'Valor do Pedido';
+uiTexts.pt.orderDueDateOptional = 'Data Prevista de Pagamento';
+uiTexts.pt.orderProductsRequired = 'Informações do Produto';
+uiTexts.pt.orderRemarkOptional = 'Observações';
+uiTexts.pt.paymentOrderRequired = 'Selecionar Pedido';
+uiTexts.pt.paymentDateRequired = 'Data do Pagamento';
+uiTexts.pt.paymentAmountRequired = 'Valor do Pagamento';
+uiTexts.pt.paymentMethodOptional = 'Método de Pagamento';
+uiTexts.pt.paymentRemarkOptional = 'Observações';
+uiTexts.pt.customerNamePlaceholder = 'Digite o nome do cliente';
+uiTexts.pt.contactPersonPlaceholder = 'Digite o nome da pessoa de contato';
+uiTexts.pt.contactPhonePlaceholder = 'Digite o telefone de contato';
+uiTexts.pt.customerRemarkPlaceholder = 'Digite informações de observação';
+uiTexts.pt.orderNumberPlaceholder = 'Digite o número do pedido';
+uiTexts.pt.orderAmountPlaceholder = '0,00';
+uiTexts.pt.orderProductsPlaceholder = 'Digite as informações do produto';
+uiTexts.pt.orderRemarkPlaceholder = 'Digite informações de observação';
+uiTexts.pt.paymentOrderPlaceholder = 'Selecione o pedido';
+uiTexts.pt.paymentAmountPlaceholder = '0,00';
+uiTexts.pt.paymentRemarkPlaceholder = 'Digite informações de observação';
+uiTexts.pt.addCustomerModalTitle = 'Adicionar Cliente';
+uiTexts.pt.addOrderModalTitle = 'Adicionar Pedido';
+uiTexts.pt.addPaymentModalTitle = 'Adicionar Pagamento';
+uiTexts.pt.cancelCustomerBtn = 'Cancelar';
+uiTexts.pt.saveCustomerBtn = 'Salvar';
+uiTexts.pt.cancelOrderBtn = 'Cancelar';
+uiTexts.pt.saveOrderBtn = 'Salvar';
+uiTexts.pt.cancelPaymentModalBtn = 'Cancelar';
+uiTexts.pt.savePaymentModalBtn = 'Salvar';
+uiTexts.pt.customerAddedSuccess = 'Cliente adicionado com sucesso';
+uiTexts.pt.orderAddedSuccess = 'Pedido adicionado com sucesso';
+uiTexts.pt.paymentAddedSuccess = 'Registro de pagamento adicionado com sucesso';
+uiTexts.pt.selectCustomerFirst = 'Selecione primeiro um cliente';
+uiTexts.pt.selectValidOrder = 'Selecione um pedido válido';
+uiTexts.pt.paymentExceedsRemaining = 'O valor do pagamento não pode exceder o valor restante';
+uiTexts.pt.ordersCount = 'pedidos';
+uiTexts.pt.paidLabel = 'Pago';
+uiTexts.pt.products = 'Produto';
+uiTexts.pt.accountingRecords = 'Registros de Cobrança';
+uiTexts.pt.accountingRecordsTab = 'Registros de Cobrança';
+uiTexts.pt.accountingInfo = 'Informações de Cobrança';
+uiTexts.pt.totalRecords = 'Total de Registros';
+uiTexts.pt.overdueAmount = 'Valor Vencido';
+uiTexts.pt.balance = 'Saldo';
+
 // 语言切换函数
 function changeLanguage() {
     const lang = document.getElementById('languageSelect').value;
     localStorage.setItem('selectedLanguage', lang);
     chatContext.language = lang;
     updateUILanguage(lang);
+    
+    // 触发语言变更事件，通知其他模块更新语言
+    document.dispatchEvent(new CustomEvent('languageChanged', { detail: { language: lang } }));
+    
+    // 更新客户管理模块语言
+    if (typeof updateCustomerUILanguage === 'function') {
+        updateCustomerUILanguage();
+    }
 }
 
 // 更新界面语言
 function updateUILanguage(lang) {
     const texts = uiTexts[lang];
     
+    // 更新小程序标题
+    const appTitle = document.getElementById('appTitle');
+    if (appTitle) appTitle.textContent = texts.appTitle;
+    
     // 更新导航栏
-    const navTitle = document.getElementById('navTitle');
     const btnAdd = document.getElementById('btnAdd');
     const btnChat = document.getElementById('btnChat');
     const btnImport = document.getElementById('btnImport');
     const btnReport = document.getElementById('btnReport');
     const exportPdfBtn = document.getElementById('exportPdfBtn');
-    
-    if (navTitle) navTitle.textContent = texts.navTitle;
     if (btnAdd) btnAdd.textContent = texts.btnAdd;
     if (btnChat) btnChat.textContent = texts.btnChat;
     if (btnImport) btnImport.textContent = texts.btnImport;
@@ -637,6 +932,37 @@ function updateUILanguage(lang) {
     if (pendingAmountLabel) pendingAmountLabel.textContent = texts.pendingAmount;
     if (overdueCountLabel) overdueCountLabel.textContent = texts.overdueCount;
     
+    // 更新客户摘要标签
+    const summaryTotalOrdersLabel = document.getElementById('summaryTotalOrdersLabel');
+    const summaryPaidLabel = document.getElementById('summaryPaidLabel');
+    const summaryUnpaidLabel = document.getElementById('summaryUnpaidLabel');
+    const orderDateLabel = document.getElementById('orderDateLabel');
+    const orderDueDateLabel = document.getElementById('orderDueDateLabel');
+    
+    if (summaryTotalOrdersLabel) summaryTotalOrdersLabel.textContent = texts.totalOrderAmount;
+    if (summaryPaidLabel) summaryPaidLabel.textContent = texts.totalPaidAmount;
+    if (summaryUnpaidLabel) summaryUnpaidLabel.textContent = texts.totalUnpaidAmount;
+    if (orderDateLabel) orderDateLabel.innerHTML = texts.orderDateRequired + ' <span class="text-red-500">*</span>';
+    if (orderDueDateLabel) orderDueDateLabel.textContent = texts.orderDueDateOptional;
+    
+    // 更新付款方式选项
+    const paymentMethodTransferOption = document.getElementById('paymentMethodTransferOption');
+    const paymentMethodTransferOption2 = document.getElementById('paymentMethodTransferOption2');
+    
+    if (paymentMethodTransferOption) paymentMethodTransferOption.textContent = texts.paymentMethodTransfer;
+    if (paymentMethodTransferOption2) paymentMethodTransferOption2.textContent = texts.paymentMethodTransfer;
+    
+    // 更新订单相关元素
+    const orderNumberModalLabel = document.getElementById('orderNumberModalLabel');
+    const orderAmountModalLabel = document.getElementById('orderAmountModalLabel');
+    const selectOrderLabel = document.getElementById('selectOrderLabel');
+    const selectOrderPlaceholder = document.getElementById('selectOrderPlaceholder');
+    
+    if (orderNumberModalLabel) orderNumberModalLabel.textContent = texts.orderNumber;
+    if (orderAmountModalLabel) orderAmountModalLabel.innerHTML = texts.orderAmount + ' <span class="text-red-500">*</span>';
+    if (selectOrderLabel) selectOrderLabel.innerHTML = texts.paymentOrder + ' <span class="text-red-500">*</span>';
+    if (selectOrderPlaceholder) selectOrderPlaceholder.textContent = texts.paymentOrderPlaceholder;
+    
     // 更新搜索筛选区域
     const customerSearchLabel = document.getElementById('customerSearchLabel');
     const customerSearchInput = document.getElementById('customerSearch');
@@ -667,7 +993,6 @@ function updateUILanguage(lang) {
     const orderNumberLabel = document.getElementById('orderNumberLabel');
     const customerNameLabel = document.getElementById('customerNameLabel');
     const amountLabel = document.getElementById('amountLabel');
-    const orderDateLabel = document.getElementById('orderDateLabel');
     const creditDaysLabel = document.getElementById('creditDaysLabel');
     const statusLabel = document.getElementById('statusLabel');
     const cancelButton = document.getElementById('cancelButton');
@@ -739,6 +1064,92 @@ function updateUILanguage(lang) {
         if (generateReportLabel) generateReportLabel.textContent = '生成报表';
         if (clearSelectionLabel) clearSelectionLabel.textContent = '清除选择';
     }
+    
+    // 更新付款模态框
+    const paymentModalTitle = document.getElementById('paymentModalTitle');
+    const paymentRecordLabel = document.getElementById('paymentRecordLabel');
+    const paymentDateLabel = document.getElementById('paymentDateLabel');
+    const paymentAmountLabel = document.getElementById('paymentAmountLabel');
+    const paymentMethodLabel = document.getElementById('paymentMethodLabel');
+    const paymentRemarkLabel = document.getElementById('paymentRemarkLabel');
+    const cancelPaymentLabel = document.getElementById('cancelPaymentLabel');
+    const savePaymentLabel = document.getElementById('savePaymentLabel');
+    
+    if (paymentModalTitle) paymentModalTitle.textContent = texts.paymentModalTitle;
+    if (paymentRecordLabel) paymentRecordLabel.innerHTML = texts.paymentRecordLabel + ' <span class="text-red-500">*</span>';
+    if (paymentDateLabel) paymentDateLabel.innerHTML = texts.paymentDateLabel + ' <span class="text-red-500">*</span>';
+    if (paymentAmountLabel) paymentAmountLabel.innerHTML = texts.paymentAmountLabel + ' <span class="text-red-500">*</span>';
+    if (paymentMethodLabel) paymentMethodLabel.textContent = texts.paymentMethodLabel;
+    if (paymentRemarkLabel) paymentRemarkLabel.textContent = texts.paymentRemarkLabel;
+    if (cancelPaymentLabel) cancelPaymentLabel.textContent = texts.cancelPaymentLabel;
+    if (savePaymentLabel) savePaymentLabel.textContent = texts.savePaymentLabel;
+    
+    // 更新付款方式选项
+    const paymentMethod = document.getElementById('paymentMethod');
+    if (paymentMethod) {
+        const options = paymentMethod.options;
+        if (options[0]) options[0].textContent = texts.paymentMethodTransfer;
+        if (options[1]) options[1].textContent = texts.paymentMethodCash;
+        if (options[2]) options[2].textContent = texts.paymentMethodAlipay;
+        if (options[3]) options[3].textContent = texts.paymentMethodWechat;
+        if (options[4]) options[4].textContent = texts.paymentMethodPix;
+        if (options[5]) options[5].textContent = texts.paymentMethodOther;
+    }
+    
+    // 更新付款表单占位符
+    const paymentAmountInput = document.getElementById('paymentAmount');
+    const paymentRemarkInput = document.getElementById('paymentRemark');
+    
+    if (paymentAmountInput) paymentAmountInput.placeholder = texts.paymentAmountPlaceholder;
+    if (paymentRemarkInput) paymentRemarkInput.placeholder = texts.paymentRemarkPlaceholder;
+    
+    // 更新客户管理相关文本
+    const customerManagementTitle = document.getElementById('customerManagementTitle');
+    const addCustomerBtn = document.getElementById('addCustomerBtn');
+    const addCustomerModalTitle = document.getElementById('addCustomerModalTitle');
+    const addCustomerSubmitBtn = document.getElementById('addCustomerSubmitBtn');
+    const customerSearch = document.getElementById('customer-search');
+    const addOrderBtn = document.getElementById('addOrderBtn');
+    const recordPaymentBtn = document.getElementById('recordPaymentBtn');
+    const ordersTabLabel = document.getElementById('ordersTabLabel');
+    const paymentsTabLabel = document.getElementById('paymentsTabLabel');
+    const contactPersonLabel = document.getElementById('contactPersonLabel');
+    const contactPhoneLabel = document.getElementById('contactPhoneLabel');
+    const customerRemarkLabel = document.getElementById('customerRemarkLabel');
+    const addOrderModalTitle = document.getElementById('addOrderModalTitle');
+    const orderRemarkLabel = document.getElementById('orderRemarkLabel');
+    const addOrderSubmitBtn = document.getElementById('addOrderSubmitBtn');
+    const recordPaymentModalTitle = document.getElementById('recordPaymentModalTitle');
+    const paymentRemarkInputLabel = document.getElementById('paymentRemarkInputLabel');
+    const recordPaymentSubmitBtn = document.getElementById('recordPaymentSubmitBtn');
+    
+    if (customerManagementTitle) customerManagementTitle.innerHTML = '<i class="fas fa-users mr-2"></i>' + texts.customerManagement;
+    if (addCustomerBtn) addCustomerBtn.innerHTML = '<i class="fas fa-plus mr-2"></i>' + texts.addCustomer;
+    if (addCustomerModalTitle) addCustomerModalTitle.textContent = texts.addCustomer;
+    if (addCustomerSubmitBtn) addCustomerSubmitBtn.textContent = texts.addCustomer;
+    if (customerSearch) customerSearch.placeholder = texts.customerSearchPlaceholder;
+    if (addOrderBtn) addOrderBtn.textContent = texts.addOrderBtn;
+    if (recordPaymentBtn) recordPaymentBtn.textContent = texts.recordPaymentBtn;
+    if (ordersTabLabel) ordersTabLabel.textContent = texts.ordersTabLabel;
+    if (paymentsTabLabel) paymentsTabLabel.textContent = texts.paymentsTabLabel;
+    if (contactPersonLabel) contactPersonLabel.textContent = texts.contactPersonLabel;
+    if (contactPhoneLabel) contactPhoneLabel.textContent = texts.contactPhoneLabel;
+    if (customerRemarkLabel) customerRemarkLabel.textContent = texts.customerRemarkLabel;
+    if (addOrderModalTitle) addOrderModalTitle.textContent = texts.addOrderModalTitle;
+    if (orderRemarkLabel) orderRemarkLabel.textContent = texts.orderRemarkLabel;
+    if (addOrderSubmitBtn) addOrderSubmitBtn.textContent = texts.addOrderSubmitBtn;
+    if (recordPaymentModalTitle) recordPaymentModalTitle.textContent = texts.recordPaymentModalTitle;
+    if (paymentRemarkInputLabel) paymentRemarkInputLabel.textContent = texts.paymentRemarkInputLabel;
+    if (recordPaymentSubmitBtn) recordPaymentSubmitBtn.textContent = texts.recordPaymentSubmitBtn;
+    
+    // 更新占位符文本
+    const customerRemarkInput = document.getElementById('customerRemarkInput');
+    const orderRemarkInput = document.getElementById('orderRemarkInput');
+    const paymentRemarkInputField = document.getElementById('paymentRemarkInput');
+    
+    if (customerRemarkInput) customerRemarkInput.placeholder = lang === 'zh' ? '添加客户备注信息...' : 'Adicionar observações do cliente...';
+    if (orderRemarkInput) orderRemarkInput.placeholder = lang === 'zh' ? '添加订单备注信息...' : 'Adicionar observações do pedido...';
+    if (paymentRemarkInputField) paymentRemarkInputField.placeholder = lang === 'zh' ? '添加付款备注信息...' : 'Adicionar observações do pagamento...';
     
     // 重新加载表格以更新状态显示和货币格式
     loadRecords();
@@ -887,7 +1298,7 @@ document.addEventListener('DOMContentLoaded', function() {
 // 显示添加记录模态框
 function showAddModal() {
     editingIndex = -1;
-    document.getElementById('modalTitle').textContent = '添加收账记录';
+    document.getElementById('modalTitle').textContent = '收账记录';
     document.getElementById('recordForm').reset();
     document.getElementById('recordModal').classList.remove('hidden');
 }
@@ -1072,6 +1483,15 @@ function markAsPaid(index) {
     saveRecords();
     loadRecords();
     updateStatistics();
+    
+    // 触发客户数据同步
+    if (typeof syncCustomersWithRecords === 'function') {
+        syncCustomersWithRecords();
+    }
+    
+    // 分发recordsUpdated事件
+    window.dispatchEvent(new CustomEvent('recordsUpdated'));
+    
     showNotification('已标记为已收账！', 'success');
 }
 
@@ -1177,11 +1597,24 @@ function calculateDueDateFromData(orderDate, creditDays) {
         due.setDate(due.getDate() + 1);
     }
     
-    return due.toISOString().split('T')[0];
+    return formatDateToDDMMYYYY(due);
 }
 
 // 加载并显示记录
 function loadRecords() {
+    // 同步付款数据：确保paidAmount字段与payments数组一致
+    records.forEach(record => {
+        if (record.payments && Array.isArray(record.payments) && record.payments.length > 0) {
+            const calculatedPaidAmount = record.payments.reduce((sum, payment) => 
+                sum + (parseFloat(payment.amount) || 0), 0
+            );
+            // 如果paidAmount字段不存在或不正确，更新它
+            if (!record.paidAmount || record.paidAmount !== calculatedPaidAmount) {
+                record.paidAmount = calculatedPaidAmount;
+            }
+        }
+    });
+    
     const tbody = document.getElementById('recordsTable');
     tbody.innerHTML = '';
     
@@ -1200,6 +1633,19 @@ function loadRecords() {
 
 // 更新表格显示
 function updateTable() {
+    // 同步付款数据：确保paidAmount字段与payments数组一致
+    records.forEach(record => {
+        if (record.payments && Array.isArray(record.payments) && record.payments.length > 0) {
+            const calculatedPaidAmount = record.payments.reduce((sum, payment) => 
+                sum + (parseFloat(payment.amount) || 0), 0
+            );
+            // 如果paidAmount字段不存在或不正确，更新它
+            if (!record.paidAmount || record.paidAmount !== calculatedPaidAmount) {
+                record.paidAmount = calculatedPaidAmount;
+            }
+        }
+    });
+    
     const tbody = document.getElementById('recordsTable');
     tbody.innerHTML = '';
 
@@ -1237,12 +1683,23 @@ function createRecordRow(record, index, serialNumber) {
     const lang = localStorage.getItem('selectedLanguage') || 'pt';
     const texts = uiTexts[lang];
     
-    // 状态选择下拉框
+    // 状态选择下拉框和付款信息
+    const paidAmount = record.paidAmount || 0;
+    const remainingAmount = record.amount - paidAmount;
+    
     const statusOptions = `
-        <select onchange="updateRecordStatus(${index}, this.value)" class="text-xs px-2 py-1 border-0 rounded">
-            <option value="pending" ${record.status === 'pending' ? 'selected' : ''}>${texts.statusPending}</option>
-            <option value="paid" ${record.status === 'paid' ? 'selected' : ''}>${texts.statusPaid}</option>
-        </select>
+        <div>
+            <select onchange="updateRecordStatus(${index}, this.value)" class="text-xs px-2 py-1 border-0 rounded mb-1">
+                <option value="pending" ${record.status === 'pending' ? 'selected' : ''}>${texts.statusPending}</option>
+                <option value="paid" ${record.status === 'paid' ? 'selected' : ''}>${texts.statusPaid}</option>
+            </select>
+            ${paidAmount > 0 ? `
+                <div class="text-xs mt-1">
+                    <div class="text-green-600">${lang === 'zh' ? '已付' : 'Pago'}: ${formatCurrency(paidAmount)}</div>
+                    ${remainingAmount > 0 ? `<div class="text-orange-600">${lang === 'zh' ? '剩余' : 'Restante'}: ${formatCurrency(remainingAmount)}</div>` : ''}
+                </div>
+            ` : `<div class="text-xs text-gray-500 mt-1">${lang === 'zh' ? '未付款' : 'Não pago'}</div>`}
+        </div>
     `;
     
     const tooltipText = lang === 'zh' ? '双击编辑' : 'Clique duplo para editar';
@@ -1263,6 +1720,7 @@ function createRecordRow(record, index, serialNumber) {
         <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 editable-cell" data-field="amount" data-index="${index}" data-tooltip="${tooltipText}" ondblclick="editCell(this)">
             ${formatCurrency(record.amount)}
         </td>
+
         <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 editable-cell hide-mobile" data-field="orderDate" data-index="${index}" data-tooltip="${tooltipText}" ondblclick="editCell(this)">
             ${formatDate(record.orderDate) || '-'}
         </td>
@@ -1281,6 +1739,12 @@ function createRecordRow(record, index, serialNumber) {
             <div class="action-buttons flex items-center space-x-2">
                 <button onclick="showEditModal(${index})" class="text-blue-600 hover:text-blue-900" title="${lang === 'zh' ? '编辑' : 'Editar'}">
                     <i class="fas fa-edit"></i>
+                </button>
+                <button onclick="openPaymentModal(${index})" class="text-green-600 hover:text-green-900" title="${lang === 'zh' ? '记录付款' : 'Registrar Pagamento'}">
+                    <i class="fas fa-money-bill-wave"></i>
+                </button>
+                <button onclick="viewPaymentRecords(${index})" class="text-purple-600 hover:text-purple-900" title="${lang === 'zh' ? '查看付款记录' : 'Ver Registros de Pagamento'}">
+                    <i class="fas fa-receipt"></i>
                 </button>
                 <button onclick="archiveRecord(${index})" class="text-yellow-600 hover:text-yellow-900" title="${texts.archive}">
                     <i class="fas fa-folder"></i>
@@ -1453,18 +1917,13 @@ function updateRecordStatus(index, newStatus) {
     loadRecords();
     updateStatistics();
     
-    const lang = localStorage.getItem('selectedLanguage') || 'pt';
-    const message = lang === 'zh' ? '状态更新成功！' : 'Status atualizado com sucesso!';
-    showNotification(message, 'success');
-}
-
-// 添加状态更新函数
-function updateRecordStatus(index, newStatus) {
-    records[index].status = newStatus;
-    records[index].updatedAt = new Date().toISOString();
-    saveRecords();
-    loadRecords();
-    updateStatistics();
+    // 触发客户数据同步
+    if (typeof syncCustomersWithRecords === 'function') {
+        syncCustomersWithRecords();
+    }
+    
+    // 分发recordsUpdated事件
+    window.dispatchEvent(new CustomEvent('recordsUpdated'));
     
     const lang = localStorage.getItem('selectedLanguage') || 'pt';
     const message = lang === 'zh' ? '状态更新成功！' : 'Status atualizado com sucesso!';
@@ -1530,6 +1989,8 @@ function formatCurrency(value) {
     if (value === undefined || value === null || isNaN(value)) {
         return 'R$ 0,00';
     }
+    
+    // 统一使用巴西雷亚尔格式，无论语言环境如何
     return new Intl.NumberFormat('pt-BR', {
         style: 'currency',
         currency: 'BRL'
@@ -1585,17 +2046,19 @@ function updateStatistics() {
         return sum + amount;
     }, 0);
     
-    const paidAmount = records.filter(r => r.status === 'paid').reduce((sum, record) => {
-        const amount = typeof record.amount === 'number' ? record.amount : parseFloat(record.amount) || 0;
-        return sum + amount;
+    const paidAmount = records.reduce((sum, record) => {
+        const paid = typeof record.paidAmount === 'number' ? record.paidAmount : parseFloat(record.paidAmount) || 0;
+        return sum + paid;
     }, 0);
     
     const pendingAmount = totalAmount - paidAmount;
     
     const today = new Date();
     const overdueCount = records.filter(record => {
-        const dueDate = new Date(record.dueDate);
-        return record.status !== 'paid' && dueDate < today;
+        const dueDate = parseDDMMYYYYToDate(record.dueDate);
+        const paidAmount = typeof record.paidAmount === 'number' ? record.paidAmount : parseFloat(record.paidAmount) || 0;
+        const remainingAmount = record.amount - paidAmount;
+        return remainingAmount > 0 && dueDate && dueDate < today;
     }).length;
     
     // 使用巴西货币格式显示所有金额
@@ -1612,14 +2075,14 @@ function checkDueDates() {
     tomorrow.setDate(tomorrow.getDate() + 1);
     
     const dueTomorrow = records.filter(record => {
-        const dueDate = new Date(record.dueDate);
-        return record.status !== 'paid' && 
+        const dueDate = parseDDMMYYYYToDate(record.dueDate);
+        return record.status !== 'paid' && dueDate &&
                dueDate.toDateString() === tomorrow.toDateString();
     });
     
     const overdue = records.filter(record => {
-        const dueDate = new Date(record.dueDate);
-        return record.status !== 'paid' && dueDate < today;
+        const dueDate = parseDDMMYYYYToDate(record.dueDate);
+        return record.status !== 'paid' && dueDate && dueDate < today;
     });
     
     if (dueTomorrow.length > 0) {
@@ -1638,7 +2101,7 @@ function generateReport() {
     const texts = uiTexts[currentLang];
     const locale = currentLang === 'pt' ? 'pt-BR' : 'zh-CN';
     const currency = currentLang === 'pt' ? 'BRL' : 'CNY';
-    const currencySymbol = currentLang === 'pt' ? 'R$' : '¥';
+    const currencySymbol = 'R$';
     
     // 按客户分组统计
     const customerStats = {};
@@ -1658,14 +2121,19 @@ function generateReport() {
         stats.total += amount;
         stats.count++;
         
-        if (record.status === 'paid') {
-            stats.paid += amount;
-        } else {
+        // 使用 paidAmount 计算已收金额
+        const paidAmount = typeof record.paidAmount === 'number' ? record.paidAmount : parseFloat(record.paidAmount) || 0;
+        stats.paid += paidAmount;
+        
+        // 计算剩余未收金额
+        const remainingAmount = amount - paidAmount;
+        
+        if (record.status !== 'paid' && remainingAmount > 0) {
             const dueDate = parseDDMMYYYYToDate(record.dueDate) || new Date(record.dueDate);
             if (dueDate < today) {
-                stats.overdue += amount;
+                stats.overdue += remainingAmount;
             } else {
-                stats.pending += amount;
+                stats.pending += remainingAmount;
             }
         }
     });
@@ -1680,12 +2148,13 @@ function generateReport() {
             monthlyStats[month] = { total: 0, paid: 0, pending: 0 };
         }
         
-        monthlyStats[month].total += parseFloat(record.amount) || 0;
-        if (record.status === 'paid') {
-            monthlyStats[month].paid += parseFloat(record.amount) || 0;
-        } else {
-            monthlyStats[month].pending += parseFloat(record.amount) || 0;
-        }
+        const amount = parseFloat(record.amount) || 0;
+        const paidAmount = typeof record.paidAmount === 'number' ? record.paidAmount : parseFloat(record.paidAmount) || 0;
+        const remainingAmount = amount - paidAmount;
+        
+        monthlyStats[month].total += amount;
+        monthlyStats[month].paid += paidAmount;
+        monthlyStats[month].pending += remainingAmount;
     });
     
     const reportHtml = `
@@ -1941,7 +2410,7 @@ function processChatMessage(message) {
             loadRecords();
             updateStatistics();
             
-            addChatMessage(`${strings.completed}\n${strings.customer}：${record.customerName}\n${strings.amount}：${lang === 'zh' ? '¥' : 'R$ '}${record.amount}\n${strings.orderDate}：${record.orderDate}\n${strings.creditDays}：${creditDays}${lang === 'zh' ? '天' : ' dias'}\n${strings.dueDate}：${dueDateStr}`, 'bot');
+            addChatMessage(`${strings.completed}\n${strings.customer}：${record.customerName}\n${strings.amount}：R$ ${record.amount}\n${strings.orderDate}：${record.orderDate}\n${strings.creditDays}：${creditDays} dias\n${strings.dueDate}：${dueDateStr}`, 'bot');
             
             setTimeout(() => {
                 closeChatModal();
@@ -2468,7 +2937,7 @@ function exportToPDF() {
     const currentLang = localStorage.getItem('selectedLanguage') || 'zh';
     const texts = uiTexts[currentLang];
     const locale = currentLang === 'pt' ? 'pt-BR' : 'zh-CN';
-    const currencySymbol = currentLang === 'pt' ? 'R$' : '¥';
+    const currencySymbol = 'R$';
     
     // 设置字体（支持中文）
     doc.setFont('helvetica');
@@ -2489,7 +2958,7 @@ function exportToPDF() {
     yPosition += 15;
     
     const totalAmount = records.reduce((sum, r) => sum + r.amount, 0);
-    const paidAmount = records.filter(r => r.status === 'paid').reduce((sum, r) => sum + r.amount, 0);
+    const paidAmount = records.reduce((sum, r) => sum + (parseFloat(r.paidAmount) || 0), 0);
     const pendingAmount = records.filter(r => r.status !== 'paid').reduce((sum, r) => sum + r.amount, 0);
     const overdueCount = records.filter(r => r.status !== 'paid' && (parseDDMMYYYYToDate(r.dueDate) || new Date(r.dueDate)) < new Date()).length;
     
@@ -2525,14 +2994,18 @@ function exportToPDF() {
         stats.total += record.amount;
         stats.count++;
         
-        if (record.status === 'paid') {
-            stats.paid += record.amount;
-        } else {
+        // 使用 paidAmount 计算已收金额
+        const paidAmount = typeof record.paidAmount === 'number' ? record.paidAmount : parseFloat(record.paidAmount) || 0;
+        stats.paid += paidAmount;
+        
+        // 计算剩余未付金额
+        const remainingAmount = record.amount - paidAmount;
+        if (remainingAmount > 0) {
             const dueDate = parseDDMMYYYYToDate(record.dueDate) || new Date(record.dueDate);
             if (dueDate < new Date()) {
-                stats.overdue += record.amount;
+                stats.overdue += remainingAmount;
             } else {
-                stats.pending += record.amount;
+                stats.pending += remainingAmount;
             }
         }
     });
@@ -2568,12 +3041,12 @@ function exportToPDF() {
             monthlyStats[month] = { total: 0, paid: 0, pending: 0 };
         }
         
+        const paidAmount = record.paidAmount || 0;
+        const remainingAmount = record.amount - paidAmount;
+        
         monthlyStats[month].total += record.amount;
-        if (record.status === 'paid') {
-            monthlyStats[month].paid += record.amount;
-        } else {
-            monthlyStats[month].pending += record.amount;
-        }
+        monthlyStats[month].paid += paidAmount;
+        monthlyStats[month].pending += remainingAmount;
     });
     
     doc.setFontSize(10);
@@ -2799,6 +3272,9 @@ function generateReportHTML(selectedRecords) {
     const currentDate = new Date().toLocaleDateString(lang === 'zh' ? 'zh-CN' : 'pt-BR');
     
     let totalAmount = 0;
+    let totalPaidAmount = 0;
+    let totalRemainingAmount = 0;
+    
     selectedRecords.forEach(record => {
         if (record.amount) {
             const amount = parseFloat(record.amount.toString().replace(/[^\d.-]/g, ''));
@@ -2806,15 +3282,40 @@ function generateReportHTML(selectedRecords) {
                 totalAmount += amount;
             }
         }
+        
+        // 计算已付金额
+        const paidAmount = record.paidAmount || 0;
+        totalPaidAmount += paidAmount;
+        
+        // 计算剩余金额
+        const remainingAmount = (record.amount || 0) - paidAmount;
+        totalRemainingAmount += remainingAmount;
     });
     
     const reportTitle = lang === 'zh' ? '收账记录报表' : 'Relatório de Contas a Receber';
     const generatedDate = lang === 'zh' ? `生成日期: ${currentDate}` : `Data de Geração: ${currentDate}`;
     const recordCount = lang === 'zh' ? `记录数量: ${selectedRecords.length}` : `Número de Registros: ${selectedRecords.length}`;
     const totalLabel = lang === 'zh' ? '总金额:' : 'Valor Total:';
+    const paidLabel = lang === 'zh' ? '已付金额:' : 'Valor Pago:';
+    const remainingLabel = lang === 'zh' ? '剩余金额:' : 'Valor Restante:';
     
     let tableRows = '';
     selectedRecords.forEach((record, index) => {
+        const paidAmount = record.paidAmount || 0;
+        const remainingAmount = (record.amount || 0) - paidAmount;
+        
+        // 生成付款记录详情
+        let paymentDetails = '';
+        if (record.payments && record.payments.length > 0) {
+            const paymentList = record.payments.map(payment => {
+                const methodText = getPaymentMethodText(payment.method);
+                return `${formatDate(payment.date)} - ${formatCurrency(payment.amount)} (${methodText})`;
+            }).join('<br>');
+            paymentDetails = `<div class="text-sm text-gray-600">${paymentList}</div>`;
+        } else {
+            paymentDetails = `<div class="text-sm text-gray-400">${lang === 'zh' ? '暂无付款记录' : 'Nenhum pagamento'}</div>`;
+        }
+        
         tableRows += `
             <tr>
                 <td class="px-4 py-2 border">${index + 1}</td>
@@ -2823,11 +3324,19 @@ function generateReportHTML(selectedRecords) {
                 <td class="px-4 py-2 border">${record.customerName || '-'}</td>
                 <td class="px-4 py-2 border">${formatDate(record.orderDate) || '-'}</td>
                 <td class="px-4 py-2 border">${formatCurrency(record.amount)}</td>
+                <td class="px-4 py-2 border">${formatCurrency(paidAmount)}</td>
+                <td class="px-4 py-2 border">${formatCurrency(remainingAmount)}</td>
+                <td class="px-4 py-2 border">${paymentDetails}</td>
             </tr>`;
     });
     
     return `
         <div class="p-6">
+            <div class="mb-4">
+                <h2 class="text-xl font-bold mb-2">${reportTitle}</h2>
+                <p class="text-gray-600">${generatedDate}</p>
+                <p class="text-gray-600">${recordCount}</p>
+            </div>
             <div class="overflow-x-auto">
                 <table class="w-full border-collapse border border-gray-300">
                     <thead class="bg-gray-50">
@@ -2837,7 +3346,10 @@ function generateReportHTML(selectedRecords) {
                             <th class="px-4 py-2 border border-gray-300 text-left">${lang === 'zh' ? '订单号' : 'Nº DE PEDIDO'}</th>
                             <th class="px-4 py-2 border border-gray-300 text-left">${lang === 'zh' ? '客户' : 'Cliente'}</th>
                             <th class="px-4 py-2 border border-gray-300 text-left">${lang === 'zh' ? '订单日期' : 'Data de Emissão'}</th>
-                            <th class="px-4 py-2 border border-gray-300 text-left">${lang === 'zh' ? '金额' : 'Valor'}</th>
+                            <th class="px-4 py-2 border border-gray-300 text-left">${lang === 'zh' ? '订单金额' : 'Valor do Pedido'}</th>
+                            <th class="px-4 py-2 border border-gray-300 text-left">${lang === 'zh' ? '已付金额' : 'Valor Pago'}</th>
+                            <th class="px-4 py-2 border border-gray-300 text-left">${lang === 'zh' ? '剩余金额' : 'Valor Restante'}</th>
+                            <th class="px-4 py-2 border border-gray-300 text-left">${lang === 'zh' ? '付款记录' : 'Registros de Pagamento'}</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -2847,9 +3359,26 @@ function generateReportHTML(selectedRecords) {
                         <tr>
                             <td colspan="5" class="px-4 py-2 border border-gray-300 text-right font-bold">${totalLabel}</td>
                             <td class="px-4 py-2 border border-gray-300 font-bold">${formatCurrency(totalAmount)}</td>
+                            <td class="px-4 py-2 border border-gray-300 font-bold">${formatCurrency(totalPaidAmount)}</td>
+                            <td class="px-4 py-2 border border-gray-300 font-bold">${formatCurrency(totalRemainingAmount)}</td>
+                            <td class="px-4 py-2 border border-gray-300"></td>
                         </tr>
                     </tfoot>
                 </table>
+            </div>
+            <div class="mt-4 grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div class="bg-blue-50 p-4 rounded-lg">
+                    <h3 class="font-semibold text-blue-800">${totalLabel}</h3>
+                    <p class="text-2xl font-bold text-blue-600">${formatCurrency(totalAmount)}</p>
+                </div>
+                <div class="bg-green-50 p-4 rounded-lg">
+                    <h3 class="font-semibold text-green-800">${paidLabel}</h3>
+                    <p class="text-2xl font-bold text-green-600">${formatCurrency(totalPaidAmount)}</p>
+                </div>
+                <div class="bg-orange-50 p-4 rounded-lg">
+                    <h3 class="font-semibold text-orange-800">${remainingLabel}</h3>
+                    <p class="text-2xl font-bold text-orange-600">${formatCurrency(totalRemainingAmount)}</p>
+                </div>
             </div>
         </div>
     `;
@@ -2922,4 +3451,198 @@ function printReport() {
         printWindow.document.close();
         printWindow.print();
     }
+}
+
+// 查看付款记录
+function viewPaymentRecords(index) {
+    const record = records[index];
+    const lang = localStorage.getItem('selectedLanguage') || 'pt';
+    
+    if (!record) {
+        alert(lang === 'zh' ? '记录不存在' : 'Registro não encontrado');
+        return;
+    }
+    
+    const payments = record.payments || [];
+    const paidAmount = record.paidAmount || 0;
+    const remainingAmount = record.amount - paidAmount;
+    
+    // 创建付款记录模态框
+    const modal = document.createElement('div');
+    modal.className = 'fixed inset-0 bg-gray-600 bg-opacity-50 z-50 flex items-center justify-center p-4';
+    modal.id = 'paymentRecordsModal';
+    
+    let paymentsHtml = '';
+    if (payments.length > 0) {
+        paymentsHtml = payments.map((payment, idx) => `
+            <tr class="hover:bg-gray-50">
+                <td class="px-4 py-3 text-sm text-gray-900">${idx + 1}</td>
+                <td class="px-4 py-3 text-sm text-gray-900">${formatDate(payment.date)}</td>
+                <td class="px-4 py-3 text-sm font-medium text-green-600">${formatCurrency(payment.amount)}</td>
+                <td class="px-4 py-3 text-sm text-gray-900">${payment.method || (lang === 'zh' ? '未指定' : 'Não especificado')}</td>
+                <td class="px-4 py-3 text-sm text-gray-500">${payment.remark || '-'}</td>
+            </tr>
+        `).join('');
+    } else {
+        paymentsHtml = `
+            <tr>
+                <td colspan="5" class="px-4 py-8 text-center text-gray-500">
+                    <i class="fas fa-receipt text-4xl mb-2 text-gray-300"></i>
+                    <p>${lang === 'zh' ? '暂无付款记录' : 'Nenhum registro de pagamento'}</p>
+                </td>
+            </tr>
+        `;
+    }
+    
+    modal.innerHTML = `
+        <div class="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-screen overflow-y-auto">
+            <div class="flex justify-between items-center p-6 border-b">
+                <div>
+                    <h3 class="text-lg font-semibold text-gray-800">
+                        <i class="fas fa-receipt mr-2 text-purple-600"></i>
+                        ${lang === 'zh' ? '付款记录' : 'Registros de Pagamento'}
+                    </h3>
+                    <p class="text-sm text-gray-600 mt-1">
+                        ${lang === 'zh' ? '客户' : 'Cliente'}: <span class="font-medium">${record.customerName}</span>
+                        ${record.orderNumber ? ` | ${lang === 'zh' ? '订单号' : 'Nº Pedido'}: <span class="font-medium">${record.orderNumber}</span>` : ''}
+                    </p>
+                </div>
+                <button onclick="closePaymentRecordsModal()" class="text-gray-400 hover:text-gray-600">
+                    <i class="fas fa-times text-xl"></i>
+                </button>
+            </div>
+            
+            <div class="p-6">
+                <!-- 订单摘要 -->
+                <div class="bg-gray-50 rounded-lg p-4 mb-6">
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div class="text-center">
+                            <p class="text-sm text-gray-600">${lang === 'zh' ? '订单总额' : 'Valor Total'}</p>
+                            <p class="text-xl font-bold text-blue-600">${formatCurrency(record.amount)}</p>
+                        </div>
+                        <div class="text-center">
+                            <p class="text-sm text-gray-600">${lang === 'zh' ? '已付金额' : 'Valor Pago'}</p>
+                            <p class="text-xl font-bold text-green-600">${formatCurrency(paidAmount)}</p>
+                        </div>
+                        <div class="text-center">
+                            <p class="text-sm text-gray-600">${lang === 'zh' ? '剩余金额' : 'Valor Restante'}</p>
+                            <p class="text-xl font-bold ${remainingAmount > 0 ? 'text-orange-600' : 'text-gray-400'}">${formatCurrency(remainingAmount)}</p>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- 付款记录表格 -->
+                <div class="overflow-x-auto">
+                    <table class="min-w-full divide-y divide-gray-200">
+                        <thead class="bg-gray-50">
+                            <tr>
+                                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                    ${lang === 'zh' ? '序号' : 'Nº'}
+                                </th>
+                                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                    ${lang === 'zh' ? '付款日期' : 'Data de Pagamento'}
+                                </th>
+                                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                    ${lang === 'zh' ? '付款金额' : 'Valor Pago'}
+                                </th>
+                                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                    ${lang === 'zh' ? '付款方式' : 'Método de Pagamento'}
+                                </th>
+                                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                    ${lang === 'zh' ? '备注' : 'Observações'}
+                                </th>
+                            </tr>
+                        </thead>
+                        <tbody class="bg-white divide-y divide-gray-200">
+                            ${paymentsHtml}
+                        </tbody>
+                    </table>
+                </div>
+                
+                <!-- 操作按钮 -->
+                <div class="mt-6 flex justify-end space-x-3">
+                    <button onclick="openPaymentModal(${index})" class="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors">
+                        <i class="fas fa-plus mr-2"></i>
+                        ${lang === 'zh' ? '添加付款' : 'Adicionar Pagamento'}
+                    </button>
+                    <button onclick="closePaymentRecordsModal()" class="px-4 py-2 bg-gray-300 text-gray-700 rounded-md hover:bg-gray-400 transition-colors">
+                        ${lang === 'zh' ? '关闭' : 'Fechar'}
+                    </button>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    document.body.appendChild(modal);
+    
+    // 点击背景关闭
+    modal.addEventListener('click', (e) => {
+        if (e.target === modal) {
+            closePaymentRecordsModal();
+        }
+    });
+}
+
+// 关闭付款记录模态框
+function closePaymentRecordsModal() {
+    const modal = document.getElementById('paymentRecordsModal');
+    if (modal) {
+        document.body.removeChild(modal);
+    }
+}
+
+// 删除指定客户的所有订单记录
+function deleteCustomerRecords(customerNames) {
+    const lang = localStorage.getItem('selectedLanguage') || 'pt';
+    
+    if (!Array.isArray(customerNames)) {
+        customerNames = [customerNames];
+    }
+    
+    let deletedCount = 0;
+    
+    // 从后往前遍历，避免索引问题
+    for (let i = records.length - 1; i >= 0; i--) {
+        const record = records[i];
+        if (record.customerName && customerNames.some(name => 
+            record.customerName.trim() === name.trim()
+        )) {
+            records.splice(i, 1);
+            deletedCount++;
+        }
+    }
+    
+    if (deletedCount > 0) {
+        // 保存到本地存储
+        saveToLocalStorage();
+        
+        // 重新加载表格
+        loadRecords();
+        updateStatistics();
+        
+        // 触发数据更新事件
+        window.dispatchEvent(new CustomEvent('recordsUpdated'));
+        
+        // 显示成功消息
+        const message = lang === 'zh' 
+            ? `已删除 ${deletedCount} 条记录` 
+            : `${deletedCount} registros excluídos`;
+        showNotification(message, 'success');
+        
+        console.log(`删除了 ${deletedCount} 条记录，涉及客户: ${customerNames.join(', ')}`);
+    } else {
+        const message = lang === 'zh' 
+            ? '未找到相关记录' 
+            : 'Nenhum registro encontrado';
+        showNotification(message, 'warning');
+        console.log(`未找到客户记录: ${customerNames.join(', ')}`);
+    }
+    
+    return deletedCount;
+}
+
+// 删除ABC贸易公司和XYZ建筑公司的订单记录
+function deleteSpecificCustomerOrders() {
+    const customersToDelete = ['ABC贸易公司', 'XYZ建筑公司'];
+    return deleteCustomerRecords(customersToDelete);
 }
