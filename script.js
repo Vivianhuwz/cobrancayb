@@ -316,8 +316,48 @@ async function loadFromCloud() {
             updatedAt: record.updated_at
         }));
         
+        // 合并本地和云端数据，保留本地付款记录
+        const existingLocalRecords = JSON.parse(localStorage.getItem('accountRecords')) || [];
+        const mergedRecords = [];
+        
+        // 创建云端记录的映射，用于快速查找
+        const cloudRecordMap = new Map();
+        cloudRecords.forEach(cloudRecord => {
+            const key = `${cloudRecord.customerName}_${cloudRecord.orderNumber || cloudRecord.nf}`;
+            cloudRecordMap.set(key, cloudRecord);
+        });
+        
+        // 合并逻辑：优先保留本地付款记录
+        existingLocalRecords.forEach(localRecord => {
+            const key = `${localRecord.customerName}_${localRecord.orderNumber || localRecord.nf}`;
+            const cloudRecord = cloudRecordMap.get(key);
+            
+            if (cloudRecord) {
+                // 如果云端有对应记录，合并数据但保留本地付款记录
+                const mergedRecord = {
+                    ...cloudRecord,
+                    // 保留本地的付款相关数据
+                    paidAmount: localRecord.paidAmount || 0,
+                    payments: localRecord.payments || [],
+                    // 如果本地有更新的时间戳，使用本地的
+                    updatedAt: (localRecord.updatedAt && new Date(localRecord.updatedAt) > new Date(cloudRecord.updatedAt)) 
+                        ? localRecord.updatedAt : cloudRecord.updatedAt
+                };
+                mergedRecords.push(mergedRecord);
+                cloudRecordMap.delete(key); // 标记为已处理
+            } else {
+                // 如果云端没有对应记录，保留本地记录
+                mergedRecords.push(localRecord);
+            }
+        });
+        
+        // 添加云端独有的记录
+        cloudRecordMap.forEach(cloudRecord => {
+            mergedRecords.push(cloudRecord);
+        });
+        
         // 更新本地数据
-        records = cloudRecords;
+        records = mergedRecords;
         localStorage.setItem('accountRecords', JSON.stringify(records));
         
         // 刷新界面
