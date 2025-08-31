@@ -89,7 +89,7 @@
                     
                     <!-- 从云端加载按钮 -->
                     <button onclick="loadFromCloud()" id="loadBtn" class="text-blue-500 hover:text-blue-600 px-3 py-2 rounded-lg transition-colors text-sm">
-                        <i class="fas fa-cloud-download mr-1"></i><span id="btnLoad">Carregar</span>
+                        <i class="fas fa-cloud-download"></i>
                     </button>
                 </div>
                 
@@ -103,14 +103,24 @@
                 </div>
                 
                 <!-- 用户信息和登出 -->
-                <div class="flex items-center space-x-2 border-l border-gray-300 pl-4">
-                    <div class="flex items-center space-x-2">
+                <div class="relative border-l border-gray-300 pl-4">
+                    <button onclick="toggleUserMenu()" class="flex items-center space-x-2 px-1 py-2 h-20 rounded-lg hover:bg-white transition-colors">
                         <i class="fas fa-user text-gray-600"></i>
                         <span id="currentUser" class="text-sm text-gray-700"></span>
-                    </div>
-                    <button onclick="logout()" class="text-red-500 hover:text-red-600 px-3 py-2 rounded-lg transition-colors text-sm">
-                        <i class="fas fa-sign-out-alt mr-1"></i><span id="btnLogout">Sair</span>
+                        <i class="fas fa-chevron-down text-gray-400 text-xs"></i>
                     </button>
+                    
+                    <!-- 用户下拉菜单 -->
+                    <div id="userMenu" class="hidden absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg border border-gray-200 z-50">
+                        <div class="py-2">
+                            <div class="px-4 py-2 text-sm text-gray-500 border-b border-gray-100">
+                                <span id="menuCurrentUser">用户</span>
+                            </div>
+                            <button onclick="logout()" class="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 transition-colors">
+                                <i class="fas fa-sign-out-alt mr-2"></i><span id="menuLogoutText">Sair</span>
+                            </button>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -779,8 +789,12 @@
             const userData = JSON.parse(loginData);
             // 显示当前用户
             const currentUserElement = document.getElementById('currentUser');
+            const menuCurrentUserElement = document.getElementById('menuCurrentUser');
             if (currentUserElement) {
                 currentUserElement.textContent = userData.username;
+            }
+            if (menuCurrentUserElement) {
+                menuCurrentUserElement.textContent = userData.username;
             }
             return true;
         } catch (error) {
@@ -792,6 +806,22 @@
             return false;
         }
     }
+    
+    // 切换用户菜单显示
+    function toggleUserMenu() {
+        const userMenu = document.getElementById('userMenu');
+        userMenu.classList.toggle('hidden');
+    }
+    
+    // 点击其他地方关闭用户菜单
+    document.addEventListener('click', function(event) {
+        const userMenu = document.getElementById('userMenu');
+        const userButton = event.target.closest('button[onclick="toggleUserMenu()"]');
+        
+        if (!userButton && !userMenu.contains(event.target)) {
+            userMenu.classList.add('hidden');
+        }
+    });
     
     // 登出功能
     function logout() {

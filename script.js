@@ -1130,6 +1130,10 @@ function updateUILanguage(lang) {
     if (exportPdfBtn) exportPdfBtn.textContent = texts.exportPdfBtn;
     if (btnLogout) btnLogout.textContent = texts.btnLogout;
     
+    // 更新下拉菜单中的退出按钮文本
+    const menuLogoutText = document.getElementById('menuLogoutText');
+    if (menuLogoutText) menuLogoutText.textContent = texts.btnLogout;
+    
     // 更新导入模态框
     const importModalTitle = document.getElementById('importModalTitle');
     const importDescription = document.getElementById('importDescription');
@@ -1154,7 +1158,8 @@ function updateUILanguage(lang) {
     const syncLoadBtn = document.querySelector('button[onclick="loadFromCloud()"]');
     
     if (syncManualBtn) syncManualBtn.textContent = texts.syncManual;
-    if (syncLoadBtn) syncLoadBtn.textContent = texts.syncLoad;
+    // 保持云加载按钮只显示图标，不显示文本
+    // if (syncLoadBtn) syncLoadBtn.textContent = texts.syncLoad;
     
     // 更新表格标题
     const thOrderNumber = document.getElementById('thOrderNumber');
