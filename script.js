@@ -319,26 +319,83 @@ async function loadFromCloud() {
         // 合并本地和云端数据，保留本地付款记录
         const existingLocalRecords = JSON.parse(localStorage.getItem('accountRecords')) || [];
         const mergedRecords = [];
+        const processedRecords = new Set(); // 用于跟踪已处理的记录，避免重复
+        
+        // 创建更精确的记录匹配函数
+        function createRecordKey(record) {
+            // 使用多个字段组合创建更唯一的键
+            const customerName = (record.customerName || '').trim().toLowerCase();
+            const orderNumber = (record.orderNumber || '').trim();
+            const nf = (record.nf || '').trim();
+            const amount = parseFloat(record.amount) || 0;
+            const orderDate = record.orderDate || '';
+            
+            // 优先使用orderNumber，其次使用nf，最后使用客户名+金额+日期组合
+            if (orderNumber) {
+                return `${customerName}_order_${orderNumber}`;
+            } else if (nf) {
+                return `${customerName}_nf_${nf}`;
+            } else {
+                return `${customerName}_${amount}_${orderDate}`;
+            }
+        }
         
         // 创建云端记录的映射，用于快速查找
         const cloudRecordMap = new Map();
         cloudRecords.forEach(cloudRecord => {
-            const key = `${cloudRecord.customerName}_${cloudRecord.orderNumber || cloudRecord.nf}`;
+            const key = createRecordKey(cloudRecord);
             cloudRecordMap.set(key, cloudRecord);
         });
         
         // 合并逻辑：优先保留本地付款记录
         existingLocalRecords.forEach(localRecord => {
-            const key = `${localRecord.customerName}_${localRecord.orderNumber || localRecord.nf}`;
+            const key = createRecordKey(localRecord);
+            
+            // 检查是否已经处理过这个记录
+            if (processedRecords.has(key)) {
+                console.warn('发现重复的本地记录，跳过:', localRecord);
+                return;
+            }
+            
             const cloudRecord = cloudRecordMap.get(key);
             
             if (cloudRecord) {
-                // 如果云端有对应记录，合并数据但保留本地付款记录
+                // 如果云端有对应记录，智能合并付款记录
+                const localPayments = localRecord.payments || [];
+                const cloudPayments = cloudRecord.payments || [];
+                
+                // 合并付款记录，去重
+                const paymentKeys = new Set();
+                const mergedPayments = [];
+                
+                // 添加本地付款记录
+                localPayments.forEach(payment => {
+                    const paymentKey = `${payment.date}_${payment.amount}_${payment.method || 'transfer'}_${payment.remark || ''}`;
+                    if (!paymentKeys.has(paymentKey)) {
+                        mergedPayments.push(payment);
+                        paymentKeys.add(paymentKey);
+                    }
+                });
+                
+                // 添加云端付款记录（去重）
+                cloudPayments.forEach(payment => {
+                    const paymentKey = `${payment.date}_${payment.amount}_${payment.method || 'transfer'}_${payment.remark || ''}`;
+                    if (!paymentKeys.has(paymentKey)) {
+                        mergedPayments.push(payment);
+                        paymentKeys.add(paymentKey);
+                    }
+                });
+                
+                // 重新计算总付款金额
+                const totalPaidAmount = mergedPayments.reduce((sum, payment) => {
+                    return sum + (parseFloat(payment.amount) || 0);
+                }, 0);
+                
                 const mergedRecord = {
                     ...cloudRecord,
-                    // 保留本地的付款相关数据
-                    paidAmount: localRecord.paidAmount || 0,
-                    payments: localRecord.payments || [],
+                    // 使用合并后的付款数据
+                    paidAmount: totalPaidAmount,
+                    payments: mergedPayments,
                     // 如果本地有更新的时间戳，使用本地的
                     updatedAt: (localRecord.updatedAt && new Date(localRecord.updatedAt) > new Date(cloudRecord.updatedAt)) 
                         ? localRecord.updatedAt : cloudRecord.updatedAt
@@ -349,11 +406,16 @@ async function loadFromCloud() {
                 // 如果云端没有对应记录，保留本地记录
                 mergedRecords.push(localRecord);
             }
+            
+            processedRecords.add(key);
         });
         
         // 添加云端独有的记录
-        cloudRecordMap.forEach(cloudRecord => {
-            mergedRecords.push(cloudRecord);
+        cloudRecordMap.forEach((cloudRecord, key) => {
+            if (!processedRecords.has(key)) {
+                mergedRecords.push(cloudRecord);
+                processedRecords.add(key);
+            }
         });
         
         // 更新本地数据
@@ -1360,7 +1422,8 @@ function showEditModal(index) {
     // 格式化金额为巴西货币格式
     const amountInput = document.getElementById('amount');
     if (record.amount && record.amount > 0) {
-        const formattedAmount = record.amount.toFixed(2).replace('.', ',');
+        const numericAmount = parseFloat(record.amount) || 0;
+        const formattedAmount = numericAmount.toFixed(2).replace('.', ',');
         amountInput.value = 'R$ ' + formattedAmount.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
     } else {
         amountInput.value = '';
@@ -1494,6 +1557,29 @@ function handleFormSubmit(e) {
     };
     
     if (editingIndex === -1) {
+        // 添加新记录前检查是否存在重复记录
+        const isDuplicate = records.some(record => {
+            // 使用更严格的重复检查条件
+            const sameCustomer = record.customerName.trim().toLowerCase() === customerName.trim().toLowerCase();
+            const sameAmount = Math.abs(record.amount - amount) < 0.01; // 允许小数点误差
+            const sameOrderDate = record.orderDate === orderDate;
+            
+            // 如果有订单号或NF号，必须匹配
+            let sameOrderIdentifier = true;
+            if (orderNumber && record.orderNumber) {
+                sameOrderIdentifier = record.orderNumber.trim() === orderNumber.trim();
+            } else if (nf && record.nf) {
+                sameOrderIdentifier = record.nf.trim() === nf.trim();
+            }
+            
+            return sameCustomer && sameAmount && sameOrderDate && sameOrderIdentifier;
+        });
+        
+        if (isDuplicate) {
+            showNotification('检测到重复记录，请检查客户名称、金额、订单日期和订单号是否已存在！', 'error');
+            return;
+        }
+        
         // 添加新记录
         records.push(formData);
         showNotification('收账记录添加成功！', 'success');
@@ -2278,7 +2364,7 @@ function generateReport() {
                                     <td class="px-4 py-2 text-right">${currencySymbol}${stats.total.toLocaleString(locale, {minimumFractionDigits: 2})}</td>
                                     <td class="px-4 py-2 text-right text-green-600">${currencySymbol}${stats.paid.toLocaleString(locale, {minimumFractionDigits: 2})}</td>
                                     <td class="px-4 py-2 text-right text-yellow-600">${currencySymbol}${stats.pending.toLocaleString(locale, {minimumFractionDigits: 2})}</td>
-                                    <td class="px-4 py-2 text-right">${((stats.paid / stats.total) * 100).toFixed(1)}%</td>
+                                    <td class="px-4 py-2 text-right">${stats.total > 0 ? ((stats.paid / stats.total) * 100).toFixed(1) : '0.0'}%</td>
                                 </tr>
                             `).join('')}
                         </tbody>
@@ -3099,7 +3185,7 @@ function exportToPDF() {
             doc.addPage();
             yPosition = 30;
         }
-        const collectionRate = ((stats.paid / stats.total) * 100).toFixed(1);
+        const collectionRate = stats.total > 0 ? ((stats.paid / stats.total) * 100).toFixed(1) : '0.0';
         doc.text(`${month}: ${texts.totalAmountReport} ${currencySymbol}${stats.total.toLocaleString(locale, {minimumFractionDigits: 2})}, ${texts.collectionRateReport} ${collectionRate}%`, 20, yPosition);
         yPosition += 8;
     });
@@ -3525,12 +3611,17 @@ function viewPaymentRecords(index) {
                 <td class="px-4 py-3 text-sm font-medium text-green-600">${formatCurrency(payment.amount)}</td>
                 <td class="px-4 py-3 text-sm text-gray-900">${payment.method || (lang === 'zh' ? '未指定' : 'Não especificado')}</td>
                 <td class="px-4 py-3 text-sm text-gray-500">${payment.remark || '-'}</td>
+                <td class="px-4 py-3 text-sm text-gray-900">
+                    <button onclick="deletePaymentRecord(${index}, ${idx})" class="text-red-600 hover:text-red-800 transition-colors" title="${lang === 'zh' ? '删除付款记录' : 'Excluir registro de pagamento'}">
+                        <i class="fas fa-trash"></i>
+                    </button>
+                </td>
             </tr>
         `).join('');
     } else {
         paymentsHtml = `
             <tr>
-                <td colspan="5" class="px-4 py-8 text-center text-gray-500">
+                <td colspan="6" class="px-4 py-8 text-center text-gray-500">
                     <i class="fas fa-receipt text-4xl mb-2 text-gray-300"></i>
                     <p>${lang === 'zh' ? '暂无付款记录' : 'Nenhum registro de pagamento'}</p>
                 </td>
@@ -3595,6 +3686,9 @@ function viewPaymentRecords(index) {
                                 <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                                     ${lang === 'zh' ? '备注' : 'Observações'}
                                 </th>
+                                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                    ${lang === 'zh' ? '操作' : 'Ações'}
+                                </th>
                             </tr>
                         </thead>
                         <tbody class="bg-white divide-y divide-gray-200">
@@ -3625,6 +3719,89 @@ function viewPaymentRecords(index) {
             closePaymentRecordsModal();
         }
     });
+}
+
+// 删除单个付款记录
+function deletePaymentRecord(recordIndex, paymentIndex) {
+    const lang = localStorage.getItem('selectedLanguage') || 'pt';
+    const record = records[recordIndex];
+    
+    if (!record || !record.payments || paymentIndex >= record.payments.length) {
+        showNotification(lang === 'zh' ? '付款记录不存在' : 'Registro de pagamento não encontrado', 'error');
+        return;
+    }
+    
+    const payment = record.payments[paymentIndex];
+    const confirmMessage = lang === 'zh' 
+        ? `确定要删除这条付款记录吗？\n\n付款日期：${formatDate(payment.date)}\n付款金额：${formatCurrency(payment.amount)}\n付款方式：${payment.method || '未指定'}` 
+        : `Tem certeza de que deseja excluir este registro de pagamento?\n\nData: ${formatDate(payment.date)}\nValor: ${formatCurrency(payment.amount)}\nMétodo: ${payment.method || 'Não especificado'}`;
+    
+    if (confirm(confirmMessage)) {
+        // 从付款记录数组中删除该付款
+        const deletedAmount = parseFloat(payment.amount) || 0;
+        record.payments.splice(paymentIndex, 1);
+        
+        // 重新计算已付金额
+        record.paidAmount = record.payments.reduce((sum, p) => sum + (parseFloat(p.amount) || 0), 0);
+        
+        // 更新记录状态
+        if (record.paidAmount >= record.amount) {
+            record.status = 'paid';
+        } else if (record.paidAmount > 0) {
+            // 部分付款，保持原状态或设为适当状态
+            if (record.status === 'paid') {
+                // 如果之前是已付款状态，现在改为未完全付款
+                const today = new Date();
+                const dueDate = new Date(record.dueDate);
+                if (dueDate < today) {
+                    record.status = 'overdue';
+                } else {
+                    record.status = 'pending';
+                }
+            }
+        } else {
+            // 没有付款记录，设为待付款
+            const today = new Date();
+            const dueDate = new Date(record.dueDate);
+            if (dueDate < today) {
+                record.status = 'overdue';
+            } else {
+                record.status = 'pending';
+            }
+        }
+        
+        // 更新时间戳
+        record.updatedAt = new Date().toISOString();
+        
+        // 保存记录
+        saveRecords();
+        
+        // 更新界面
+        loadRecords();
+        updateStatistics();
+        
+        // 触发客户数据同步
+        if (typeof syncCustomersWithRecords === 'function') {
+            syncCustomersWithRecords();
+        }
+        
+        // 分发recordsUpdated事件
+        window.dispatchEvent(new CustomEvent('recordsUpdated'));
+        
+        // 关闭当前模态框
+        closePaymentRecordsModal();
+        
+        // 显示成功通知
+        const successMessage = lang === 'zh' 
+            ? `付款记录删除成功！已从 ${record.customerName} 的订单中删除 ${formatCurrency(deletedAmount)} 的付款记录。` 
+            : `Registro de pagamento excluído com sucesso! Removido ${formatCurrency(deletedAmount)} do pedido de ${record.customerName}.`;
+        showNotification(successMessage, 'success');
+        
+        // 重新打开付款记录模态框以显示更新后的数据
+        setTimeout(() => {
+            viewPaymentRecords(recordIndex);
+        }, 100);
+    }
 }
 
 // 关闭付款记录模态框

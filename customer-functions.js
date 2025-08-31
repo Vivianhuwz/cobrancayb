@@ -390,20 +390,27 @@ function renderCustomerPayments(customer) {
     const texts = uiTexts[lang];
     
     const allPayments = [];
+    const paymentKeys = new Set(); // 用于去重的键集合
     
     // 添加客户管理系统中的付款记录
     customer.orders.forEach(order => {
         order.payments.forEach(payment => {
-            allPayments.push({
-                ...payment,
-                orderNumber: order.orderNumber,
-                orderId: order.id,
-                source: payment.source || 'customer_system'
-            });
+            // 创建唯一键用于去重：日期+金额+订单号+付款方式
+            const paymentKey = `${payment.date}_${payment.amount}_${order.orderNumber}_${payment.method || 'transfer'}`;
+            
+            if (!paymentKeys.has(paymentKey)) {
+                paymentKeys.add(paymentKey);
+                allPayments.push({
+                    ...payment,
+                    orderNumber: order.orderNumber,
+                    orderId: order.id,
+                    source: payment.source || 'customer_system'
+                });
+            }
         });
     });
     
-    // 添加来自收账记录的付款记录
+    // 添加来自收账记录的付款记录（只添加不重复的）
     if (typeof records !== 'undefined' && Array.isArray(records)) {
         const customerRecords = records.filter(record => 
             record.customerName && record.customerName.trim() === customer.name.trim()
@@ -412,12 +419,18 @@ function renderCustomerPayments(customer) {
         customerRecords.forEach(record => {
             if (record.payments && Array.isArray(record.payments)) {
                 record.payments.forEach(payment => {
-                    allPayments.push({
-                        ...payment,
-                        orderNumber: record.orderNumber || record.nf || 'N/A',
-                        orderId: record.id,
-                        source: 'accounting_record'
-                    });
+                    // 创建唯一键用于去重
+                    const paymentKey = `${payment.date}_${payment.amount}_${record.orderNumber || record.nf || 'N/A'}_${payment.method || 'transfer'}`;
+                    
+                    if (!paymentKeys.has(paymentKey)) {
+                        paymentKeys.add(paymentKey);
+                        allPayments.push({
+                            ...payment,
+                            orderNumber: record.orderNumber || record.nf || 'N/A',
+                            orderId: record.id,
+                            source: 'accounting_record'
+                        });
+                    }
                 });
             }
         });
@@ -689,11 +702,31 @@ document.addEventListener('DOMContentLoaded', function() {
         const customer = customers.find(c => c.id === selectedCustomerId);
         if (!customer) return;
         
+        const orderNumber = document.getElementById('orderNumberInput').value.trim();
+        const orderDate = document.getElementById('orderDateInput').value;
+        const orderAmount = parseFloat(document.getElementById('orderAmountInput').value);
+        
+        // 检查是否存在重复订单
+        const isDuplicateOrder = customer.orders.some(order => {
+            const sameOrderNumber = orderNumber && order.orderNumber && 
+                order.orderNumber.trim() === orderNumber;
+            const sameAmount = Math.abs(order.amount - orderAmount) < 0.01;
+            const sameDate = order.date === orderDate;
+            
+            return sameOrderNumber || (sameAmount && sameDate);
+        });
+        
+        if (isDuplicateOrder) {
+            const lang = localStorage.getItem('selectedLanguage') || 'pt';
+            showNotification(lang === 'pt' ? 'Pedido duplicado detectado!' : '检测到重复订单！', 'error');
+            return;
+        }
+        
         const newOrder = {
             id: generateId('ORD'),
-            orderNumber: document.getElementById('orderNumberInput').value,
-            date: document.getElementById('orderDateInput').value,
-            amount: parseFloat(document.getElementById('orderAmountInput').value),
+            orderNumber: orderNumber,
+            date: orderDate,
+            amount: orderAmount,
             dueDate: document.getElementById('orderDueDateInput').value,
             products: document.getElementById('orderProductsInput').value,
             remark: document.getElementById('orderRemarkInput').value,
@@ -704,40 +737,53 @@ document.addEventListener('DOMContentLoaded', function() {
         
         // 同时添加到收账记录数组中
         if (typeof records !== 'undefined' && Array.isArray(records)) {
-            const accountingRecord = {
-                id: newOrder.id,
-                nf: '', // NF号码留空，可以后续编辑
-                orderNumber: newOrder.orderNumber,
-                customerName: customer.name,
-                amount: newOrder.amount,
-                orderDate: newOrder.date,
-                dueDate: newOrder.dueDate,
-                products: newOrder.products,
-                remark: newOrder.remark,
-                status: 'pending',
-                paidAmount: 0,
-                payments: [],
-                createdAt: new Date().toISOString(),
-                updatedAt: new Date().toISOString()
-            };
+            // 检查收账记录中是否已存在相同记录
+            const isDuplicateRecord = records.some(record => {
+                const sameCustomer = record.customerName.trim().toLowerCase() === customer.name.trim().toLowerCase();
+                const sameAmount = Math.abs(record.amount - newOrder.amount) < 0.01;
+                const sameOrderDate = record.orderDate === newOrder.date;
+                const sameOrderNumber = newOrder.orderNumber && record.orderNumber && 
+                    record.orderNumber.trim() === newOrder.orderNumber.trim();
+                
+                return sameCustomer && sameAmount && sameOrderDate && sameOrderNumber;
+            });
             
-            records.push(accountingRecord);
-            
-            // 保存到localStorage
-            if (typeof saveRecords === 'function') {
-                saveRecords();
-            } else {
-                localStorage.setItem('accountRecords', JSON.stringify(records));
-            }
-            
-            // 更新主表格显示
-            if (typeof loadRecords === 'function') {
-                loadRecords();
-            }
-            
-            // 更新统计信息
-            if (typeof updateStatistics === 'function') {
-                updateStatistics();
+            if (!isDuplicateRecord) {
+                const accountingRecord = {
+                    id: newOrder.id,
+                    nf: '', // NF号码留空，可以后续编辑
+                    orderNumber: newOrder.orderNumber,
+                    customerName: customer.name,
+                    amount: newOrder.amount,
+                    orderDate: newOrder.date,
+                    dueDate: newOrder.dueDate,
+                    products: newOrder.products,
+                    remark: newOrder.remark,
+                    status: 'pending',
+                    paidAmount: 0,
+                    payments: [],
+                    createdAt: new Date().toISOString(),
+                    updatedAt: new Date().toISOString()
+                };
+                
+                records.push(accountingRecord);
+                
+                // 保存到localStorage
+                if (typeof saveRecords === 'function') {
+                    saveRecords();
+                } else {
+                    localStorage.setItem('accountRecords', JSON.stringify(records));
+                }
+                
+                // 更新主表格显示
+                if (typeof loadRecords === 'function') {
+                    loadRecords();
+                }
+                
+                // 更新统计信息
+                if (typeof updateStatistics === 'function') {
+                    updateStatistics();
+                }
             }
         }
         
@@ -1132,11 +1178,29 @@ function syncCustomersWithRecords() {
         
         if (existingCustomer) {
             // 合并订单数据，避免重复
-            const existingOrderNumbers = new Set(existingCustomer.orders.map(o => o.orderNumber));
-            
-            recordCustomer.orders.forEach(order => {
-                if (!existingOrderNumbers.has(order.orderNumber)) {
-                    existingCustomer.orders.push(order);
+            recordCustomer.orders.forEach(newOrder => {
+                const existingOrder = existingCustomer.orders.find(o => o.orderNumber === newOrder.orderNumber);
+                
+                if (existingOrder) {
+                    // 如果订单已存在，合并付款记录（去重）
+                    const existingPaymentKeys = new Set();
+                    
+                    // 收集现有付款记录的键
+                    existingOrder.payments.forEach(payment => {
+                        const paymentKey = `${payment.date}_${payment.amount}_${payment.method || 'transfer'}`;
+                        existingPaymentKeys.add(paymentKey);
+                    });
+                    
+                    // 添加新的付款记录（去重）
+                    newOrder.payments.forEach(payment => {
+                        const paymentKey = `${payment.date}_${payment.amount}_${payment.method || 'transfer'}`;
+                        if (!existingPaymentKeys.has(paymentKey)) {
+                            existingOrder.payments.push(payment);
+                        }
+                    });
+                } else {
+                    // 如果订单不存在，直接添加
+                    existingCustomer.orders.push(newOrder);
                 }
             });
         } else {
