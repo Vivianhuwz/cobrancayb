@@ -1,0 +1,282 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sistema de Cobrança - Login</title>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        .login-container {
+            background: #f5f5f5;
+            min-height: 100vh;
+        }
+        .login-card {
+            backdrop-filter: blur(10px);
+            background: rgba(255, 255, 255, 0.95);
+        }
+        .input-group {
+            position: relative;
+        }
+        .input-group input {
+            padding-left: 2.5rem;
+        }
+        .input-group .icon {
+            position: absolute;
+            left: 0.75rem;
+            top: 50%;
+            transform: translateY(-50%);
+            color: #6b7280;
+        }
+        .login-btn {
+            background: #f3f4f6;
+            color: #374151;
+            border: none;
+            transition: all 0.3s ease;
+        }
+        .login-btn:hover {
+            background: #e5e7eb;
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(0, 0, 0, 0.1);
+        }
+        .error-message {
+            animation: shake 0.5s ease-in-out;
+        }
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            25% { transform: translateX(-5px); }
+            75% { transform: translateX(5px); }
+        }
+    </style>
+</head>
+<body class="login-container flex items-center justify-center">
+    <div class="login-card rounded-2xl shadow-2xl p-8 w-full max-w-md mx-4">
+        <!-- Logo和标题 -->
+        <div class="text-center mb-8">
+            <img src="YOUBAI.png" alt="YOUBAI Logo" class="h-16 w-auto mx-auto mb-4">
+            <h1 class="text-2xl font-bold text-gray-800 mb-2" id="loginTitle">Sistema de Cobrança</h1>
+            <p class="text-gray-600 text-sm" id="loginSubtitle">Faça login para acessar o sistema</p>
+        </div>
+
+        <!-- 登录表单 -->
+        <form id="loginForm" onsubmit="handleLogin(event)">
+            <!-- 用户名输入 -->
+            <div class="mb-6">
+                <label class="block text-sm font-medium text-gray-700 mb-2" id="usernameLabel">Usuário</label>
+                <div class="input-group">
+                    <i class="fas fa-user icon"></i>
+                    <input type="text" id="username" name="username" required
+                           class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                           placeholder="Digite seu usuário">
+                </div>
+            </div>
+
+            <!-- 密码输入 -->
+            <div class="mb-6">
+                <label class="block text-sm font-medium text-gray-700 mb-2" id="passwordLabel">Senha</label>
+                <div class="input-group">
+                    <i class="fas fa-lock icon"></i>
+                    <input type="password" id="password" name="password" required
+                           class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                           placeholder="Digite sua senha">
+                    <button type="button" onclick="togglePassword()" class="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-500 hover:text-gray-700">
+                        <i id="passwordToggleIcon" class="fas fa-eye"></i>
+                    </button>
+                </div>
+            </div>
+
+            <!-- 记住我 -->
+            <div class="flex items-center justify-between mb-6">
+                <label class="flex items-center">
+                    <input type="checkbox" id="rememberMe" class="rounded border-gray-300 text-blue-600 focus:ring-blue-500">
+                    <span class="ml-2 text-sm text-gray-600" id="rememberLabel">Lembrar-me</span>
+                </label>
+                <a href="#" class="text-sm text-blue-600 hover:text-blue-800" id="forgotPassword">Esqueceu a senha?</a>
+            </div>
+
+            <!-- 错误消息 -->
+            <div id="errorMessage" class="hidden mb-4 p-3 bg-red-100 border border-red-400 text-red-700 rounded-lg error-message">
+                <i class="fas fa-exclamation-circle mr-2"></i>
+                <span id="errorText">Usuário ou senha incorretos</span>
+            </div>
+
+            <!-- 登录按钮 -->
+            <button type="submit" id="loginBtn" class="login-btn w-full font-semibold py-3 px-4 rounded-lg">
+                <i class="fas fa-sign-in-alt mr-2"></i>
+                <span id="loginBtnText">Entrar</span>
+            </button>
+        </form>
+
+        <!-- 语言选择 -->
+        <div class="mt-6 text-center">
+            <div class="flex items-center justify-center space-x-2">
+                <i class="fas fa-globe text-gray-600"></i>
+                <select id="languageSelect" onchange="changeLanguage()" class="bg-gray-100 text-gray-800 rounded px-2 py-1 text-sm">
+                    <option value="zh">中文</option>
+                    <option value="pt">Português</option>
+                </select>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // 默认用户凭据
+        const defaultCredentials = {
+            'admin': 'admin123',
+            'user': 'user123',
+            'youbai': 'youbai8888'
+        };
+
+        // 语言文本
+        const loginTexts = {
+            zh: {
+                loginTitle: '云收账系统',
+                loginSubtitle: '请登录以访问系统',
+                usernameLabel: '用户名',
+                passwordLabel: '密码',
+                rememberLabel: '记住我',
+                forgotPassword: '忘记密码？',
+                loginBtnText: '登录',
+                errorText: '用户名或密码错误',
+                loginSuccess: '登录成功，正在跳转...',
+                loginFailed: '登录失败，请检查用户名和密码'
+            },
+            pt: {
+                loginTitle: 'Sistema de Cobrança',
+                loginSubtitle: 'Faça login para acessar o sistema',
+                usernameLabel: 'Usuário',
+                passwordLabel: 'Senha',
+                rememberLabel: 'Lembrar-me',
+                forgotPassword: 'Esqueceu a senha?',
+                loginBtnText: 'Entrar',
+                errorText: 'Usuário ou senha incorretos',
+                loginSuccess: 'Login realizado com sucesso, redirecionando...',
+                loginFailed: 'Falha no login, verifique usuário e senha'
+            }
+        };
+
+        // 初始化语言
+        function initLanguage() {
+            const savedLanguage = localStorage.getItem('selectedLanguage') || 'pt';
+            document.getElementById('languageSelect').value = savedLanguage;
+            updateLoginTexts(savedLanguage);
+        }
+
+        // 更新登录页面文本
+        function updateLoginTexts(lang) {
+            const texts = loginTexts[lang];
+            document.getElementById('loginTitle').textContent = texts.loginTitle;
+            document.getElementById('loginSubtitle').textContent = texts.loginSubtitle;
+            document.getElementById('usernameLabel').textContent = texts.usernameLabel;
+            document.getElementById('passwordLabel').textContent = texts.passwordLabel;
+            document.getElementById('rememberLabel').textContent = texts.rememberLabel;
+            document.getElementById('forgotPassword').textContent = texts.forgotPassword;
+            document.getElementById('loginBtnText').textContent = texts.loginBtnText;
+            document.getElementById('errorText').textContent = texts.errorText;
+        }
+
+        // 切换语言
+        function changeLanguage() {
+            const selectedLanguage = document.getElementById('languageSelect').value;
+            localStorage.setItem('selectedLanguage', selectedLanguage);
+            updateLoginTexts(selectedLanguage);
+        }
+
+        // 切换密码显示
+        function togglePassword() {
+            const passwordInput = document.getElementById('password');
+            const toggleIcon = document.getElementById('passwordToggleIcon');
+            
+            if (passwordInput.type === 'password') {
+                passwordInput.type = 'text';
+                toggleIcon.className = 'fas fa-eye-slash';
+            } else {
+                passwordInput.type = 'password';
+                toggleIcon.className = 'fas fa-eye';
+            }
+        }
+
+        // 显示错误消息
+        function showError(message) {
+            const errorDiv = document.getElementById('errorMessage');
+            const errorText = document.getElementById('errorText');
+            errorText.textContent = message;
+            errorDiv.classList.remove('hidden');
+            
+            // 3秒后自动隐藏
+            setTimeout(() => {
+                errorDiv.classList.add('hidden');
+            }, 3000);
+        }
+
+        // 处理登录
+        function handleLogin(event) {
+            event.preventDefault();
+            
+            const username = document.getElementById('username').value.trim();
+            const password = document.getElementById('password').value;
+            const rememberMe = document.getElementById('rememberMe').checked;
+            const lang = localStorage.getItem('selectedLanguage') || 'pt';
+            const texts = loginTexts[lang];
+            
+            // 验证用户凭据
+            if (defaultCredentials[username] && defaultCredentials[username] === password) {
+                // 登录成功
+                const loginData = {
+                    username: username,
+                    loginTime: new Date().toISOString(),
+                    rememberMe: rememberMe
+                };
+                
+                // 保存登录状态
+                if (rememberMe) {
+                    localStorage.setItem('loginData', JSON.stringify(loginData));
+                } else {
+                    sessionStorage.setItem('loginData', JSON.stringify(loginData));
+                }
+                
+                // 显示成功消息并跳转
+                const loginBtn = document.getElementById('loginBtn');
+                loginBtn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>' + texts.loginSuccess;
+                loginBtn.disabled = true;
+                
+                setTimeout(() => {
+                    window.location.href = 'index.html';
+                }, 1500);
+            } else {
+                // 登录失败
+                showError(texts.loginFailed);
+                
+                // 清空密码输入
+                document.getElementById('password').value = '';
+                document.getElementById('password').focus();
+            }
+        }
+
+        // 检查是否已登录
+        function checkLoginStatus() {
+            const loginData = localStorage.getItem('loginData') || sessionStorage.getItem('loginData');
+            if (loginData) {
+                // 已登录，直接跳转
+                window.location.href = 'index.html';
+            }
+        }
+
+        // 页面加载时初始化
+        document.addEventListener('DOMContentLoaded', function() {
+            initLanguage();
+            checkLoginStatus();
+            
+            // 聚焦到用户名输入框
+            document.getElementById('username').focus();
+        });
+
+        // 回车键登录
+        document.addEventListener('keypress', function(event) {
+            if (event.key === 'Enter') {
+                handleLogin(event);
+            }
+        });
+    </script>
+</body>
+</html>

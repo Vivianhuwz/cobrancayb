@@ -1,0 +1,15 @@
+# 单页应用路由重定向
+# 所有未找到的路径都重定向到index.html
+/*    /index.html   200
+
+# 登录页面重定向
+/login    /login.html   200
+
+# API代理（如果需要）
+# /api/*  https://your-api-domain.com/api/:splat  200
+
+# 强制HTTPS重定向
+# http://yourdomain.com/*  https://yourdomain.com/:splat  301!
+
+# 404页面（可选）
+# /404  /404.html  404

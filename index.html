@@ -101,6 +101,17 @@
                         <option value="pt">Português</option>
                     </select>
                 </div>
+                
+                <!-- 用户信息和登出 -->
+                <div class="flex items-center space-x-2 border-l border-gray-300 pl-4">
+                    <div class="flex items-center space-x-2">
+                        <i class="fas fa-user text-gray-600"></i>
+                        <span id="currentUser" class="text-sm text-gray-700"></span>
+                    </div>
+                    <button onclick="logout()" class="text-red-500 hover:text-red-600 px-3 py-2 rounded-lg transition-colors text-sm">
+                        <i class="fas fa-sign-out-alt mr-1"></i><span id="btnLogout">Sair</span>
+                    </button>
+                </div>
             </div>
         </div>
     </nav>
@@ -755,7 +766,54 @@
 </body>
 </html>
 <script>
+    // 检查登录状态
+    function checkLoginStatus() {
+        const loginData = localStorage.getItem('loginData') || sessionStorage.getItem('loginData');
+        if (!loginData) {
+            // 未登录，跳转到登录页面
+            window.location.href = 'login.html';
+            return false;
+        }
+        
+        try {
+            const userData = JSON.parse(loginData);
+            // 显示当前用户
+            const currentUserElement = document.getElementById('currentUser');
+            if (currentUserElement) {
+                currentUserElement.textContent = userData.username;
+            }
+            return true;
+        } catch (error) {
+            console.error('登录数据解析错误:', error);
+            // 清除无效的登录数据
+            localStorage.removeItem('loginData');
+            sessionStorage.removeItem('loginData');
+            window.location.href = 'login.html';
+            return false;
+        }
+    }
+    
+    // 登出功能
+    function logout() {
+        const lang = localStorage.getItem('selectedLanguage') || 'pt';
+        const confirmMessage = lang === 'zh' ? '确定要退出登录吗？' : 'Tem certeza que deseja sair?';
+        
+        if (confirm(confirmMessage)) {
+            // 清除登录数据
+            localStorage.removeItem('loginData');
+            sessionStorage.removeItem('loginData');
+            
+            // 跳转到登录页面
+            window.location.href = 'login.html';
+        }
+    }
+    
     document.addEventListener('DOMContentLoaded', function() {
+        // 首先检查登录状态
+        if (!checkLoginStatus()) {
+            return; // 如果未登录，直接返回，不执行后续初始化
+        }
+        
         // 初始化语言选择器
         initLanguageSelector();
         

@@ -692,7 +692,9 @@ const uiTexts = {
         paidOrders: '已付款',
         unpaidOrders: '未付款',
         orderRecords: '订单记录',
-        paymentRecords: '付款记录'
+        paymentRecords: '付款记录',
+        // 登录登出
+        btnLogout: '退出登录'
     },
     pt: {
         navTitle: 'Sistema de Gestão de Cobrança',
@@ -783,6 +785,8 @@ const uiTexts = {
         unpaidOrders: 'Não Pagos',
         orderRecords: 'Registros de Pedidos',
         paymentRecords: 'Registros de Pagamentos',
+        // 登录登出
+        btnLogout: 'Sair',
         // 报表相关翻译
         reportTitle: 'Relatório de Gestão de Cobrança',
         reportGeneratedTime: 'Hora de Geração',
@@ -1118,11 +1122,13 @@ function updateUILanguage(lang) {
     const btnImport = document.getElementById('btnImport');
     const btnReport = document.getElementById('btnReport');
     const exportPdfBtn = document.getElementById('exportPdfBtn');
+    const btnLogout = document.getElementById('btnLogout');
     if (btnAdd) btnAdd.textContent = texts.btnAdd;
     if (btnChat) btnChat.textContent = texts.btnChat;
     if (btnImport) btnImport.textContent = texts.btnImport;
     if (btnReport) btnReport.textContent = texts.btnReport;
     if (exportPdfBtn) exportPdfBtn.textContent = texts.exportPdfBtn;
+    if (btnLogout) btnLogout.textContent = texts.btnLogout;
     
     // 更新导入模态框
     const importModalTitle = document.getElementById('importModalTitle');
