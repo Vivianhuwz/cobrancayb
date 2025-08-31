@@ -6,17 +6,148 @@ let editingIndex = -1;
 let chatContext = {
     step: 'start',
     tempRecord: {},
-    language: 'pt' // 默认葡萄牙语，'zh' 中文, 'pt' 葡萄牙语
+    language: 'zh' // 默认中文，'zh' 中文, 'pt' 葡萄牙语
 };
 
-// Supabase客户端和云同步相关变量
+// 数据验证和修复机制
+let dataValidationEnabled = true;
+let validationErrors = [];
+let lastValidationTime = null;
+
+// 数据验证函数
+function validateRecord(record, index) {
+    const errors = [];
+    const recordId = record.orderNumber || record.orderId || record.id || `Record_${index}`;
+    
+    // Validar campos básicos
+    if (!record.amount || isNaN(parseFloat(record.amount))) {
+        errors.push(`${recordId}: Valor do pedido inválido`);
+    }
+    
+    if (!record.customerName || record.customerName.trim() === '') {
+        errors.push(`${recordId}: Nome do cliente vazio`);
+    }
+    
+    // Validar consistência dos dados de pagamento
+    const orderAmount = parseFloat(record.amount || 0);
+    const paidAmountField = parseFloat(record.paidAmount || 0);
+    const calculatedFromPayments = record.payments && Array.isArray(record.payments) ? 
+        record.payments.reduce((sum, p) => sum + parseFloat(p.amount || 0), 0) : 0;
+    
+    // Verificar inconsistência entre paidAmount e payments
+    if (Math.abs(paidAmountField - calculatedFromPayments) > 0.01) {
+        errors.push(`${recordId}: paidAmount(${paidAmountField.toFixed(2)}) != cálculo payments(${calculatedFromPayments.toFixed(2)})`);
+    }
+    
+    // Verificar registros de pagamento ausentes
+    if (paidAmountField > 0 && (!record.payments || !Array.isArray(record.payments) || record.payments.length === 0)) {
+        errors.push(`${recordId}: Tem paidAmount mas falta array payments`);
+    }
+    
+    // Verificar valor de pagamento excede valor do pedido
+    if (calculatedFromPayments > orderAmount + 0.01) {
+        errors.push(`${recordId}: Valor do pagamento(${calculatedFromPayments.toFixed(2)}) excede valor do pedido(${orderAmount.toFixed(2)})`);
+    }
+    
+    return errors;
+}
+
+// Validar todos os registros
+function validateAllRecords() {
+    if (!dataValidationEnabled) return [];
+    
+    validationErrors = [];
+    lastValidationTime = new Date();
+    
+    records.forEach((record, index) => {
+        const recordErrors = validateRecord(record, index);
+        validationErrors.push(...recordErrors);
+    });
+    
+    if (validationErrors.length > 0) {
+        console.warn(`Validação de dados encontrou ${validationErrors.length} problemas:`, validationErrors);
+    } else {
+        console.log('Validação de dados aprovada, todos os registros consistentes');
+    }
+    
+    return validationErrors;
+}
+
+// Corrigir automaticamente problemas de inconsistência de dados
+function autoFixDataInconsistencies() {
+    let fixedCount = 0;
+    let dataChanged = false;
+    
+    records.forEach((record, index) => {
+        const recordId = record.orderNumber || record.orderId || record.id || `Record_${index}`;
+        let recordFixed = false;
+        
+        // Garantir que existe array payments
+        if (!record.payments || !Array.isArray(record.payments)) {
+            record.payments = [];
+        }
+        
+        const oldPaidAmount = parseFloat(record.paidAmount || 0);
+        
+        // Se tem paidAmount mas não tem registros payments, criar um
+        if (oldPaidAmount > 0 && record.payments.length === 0) {
+            const paymentRecord = {
+                id: `PAY_${recordId}_AUTO_${Date.now()}`,
+                date: new Date().toLocaleDateString('pt-BR'),
+                amount: oldPaidAmount,
+                method: 'transfer',
+                remark: 'Registro automático de pagamento'
+            };
+            record.payments.push(paymentRecord);
+            recordFixed = true;
+            console.log(`${recordId}: Registro de pagamento adicionado automaticamente R$ ${oldPaidAmount.toFixed(2)}`);
+        }
+        
+        // Recalcular paidAmount
+        const calculatedPaidAmount = record.payments.reduce((sum, payment) => {
+            return sum + parseFloat(payment.amount || 0);
+        }, 0);
+        
+        if (Math.abs(oldPaidAmount - calculatedPaidAmount) > 0.01) {
+            record.paidAmount = calculatedPaidAmount;
+            recordFixed = true;
+            console.log(`${recordId}: Corrigir paidAmount ${oldPaidAmount.toFixed(2)} → ${calculatedPaidAmount.toFixed(2)}`);
+        }
+        
+        if (recordFixed) {
+            fixedCount++;
+            dataChanged = true;
+        }
+    });
+    
+    if (dataChanged) {
+        localStorage.setItem('accountRecords', JSON.stringify(records));
+        console.log(`Correção automática concluída: ${fixedCount} registros corrigidos`);
+        
+        // Disparar evento de armazenamento para notificar outros componentes
+        window.dispatchEvent(new StorageEvent('storage', {
+            key: 'accountRecords',
+            newValue: JSON.stringify(records)
+        }));
+    }
+    
+    return fixedCount;
+}
+
+// Exibir erros de validação
+function displayValidationErrors() {
+    // Avisos de validação de dados desabilitados
+    return;
+}
+
+// Cliente Supabase e variáveis relacionadas à sincronização na nuvem
 let supabase = null;
 let isCloudEnabled = false;
 let syncInProgress = false;
 let autoSyncInterval = null;
 let lastSyncTime = null;
 
-// 初始化Supabase客户端
+// Inicializar cliente Supabase
 function initializeSupabase() {
     try {
         if (window.SUPABASE_CONFIG && window.supabase) {
@@ -25,46 +156,46 @@ function initializeSupabase() {
                 window.SUPABASE_CONFIG.anonKey
             );
             isCloudEnabled = true;
-            console.log('Supabase客户端初始化成功');
-            updateSyncStatus('已连接', 'success');
+            console.log('Cliente Supabase inicializado com sucesso');
+            updateSyncStatus('Conectado', 'success');
             
-            // 自动从云端加载数据
+            // Carregar dados automaticamente da nuvem
             setTimeout(async () => {
                 try {
                     await loadFromCloud();
-                    console.log('自动加载云端数据完成');
+                    console.log('Carregamento automático de dados da nuvem concluído');
                 } catch (error) {
-                    console.log('自动加载云端数据失败:', error.message);
+                    console.log('Falha no carregamento automático de dados da nuvem:', error.message);
                 }
-            }, 1000); // 延迟1秒确保页面完全加载
+            }, 1000); // Atraso de 1 segundo para garantir que a página seja totalmente carregada
             
-            // 启动自动同步
+            // Iniciar sincronização automática
             if (window.SYNC_CONFIG && window.SYNC_CONFIG.autoSync) {
                 startAutoSync();
             }
         } else {
-            console.warn('Supabase配置未找到或库未加载');
-            updateSyncStatus('配置错误', 'error');
+            console.warn('Configuração Supabase não encontrada ou biblioteca não carregada');
+            updateSyncStatus('Erro de configuração', 'error');
         }
     } catch (error) {
-        console.error('Supabase初始化失败:', error);
-        updateSyncStatus('连接失败', 'error');
+        console.error('Falha na inicialização do Supabase:', error);
+        updateSyncStatus('Falha na conexão', 'error');
         isCloudEnabled = false;
     }
 }
 
 
 
-// 云同步功能实现
+// Implementação da funcionalidade de sincronização na nuvem
 
-// 更新同步状态显示
+// Atualizar exibição do status de sincronização
 function updateSyncStatus(status, type = 'info') {
     const statusElement = document.getElementById('syncStatus');
     const indicatorElement = document.getElementById('syncIndicator');
     
     if (statusElement) {
         statusElement.textContent = status;
-        // 重置文字颜色类
+        // Redefinir classes de cor do texto
         statusElement.className = 'text-sm';
         switch (type) {
             case 'success':
@@ -105,16 +236,16 @@ function updateSyncStatus(status, type = 'info') {
     }
 }
 
-// 转换日期格式为ISO格式（PostgreSQL兼容）
+// Converter formato de data para formato ISO (compatível com PostgreSQL)
 function convertDateToISO(dateStr) {
     if (!dateStr) return null;
     
-    // 如果已经是ISO格式，直接返回
+    // Se já está no formato ISO, retornar diretamente
     if (dateStr.includes('T') && dateStr.includes('Z')) {
         return dateStr;
     }
     
-    // 处理DD/MM/YYYY格式
+    // Processar formato DD/MM/YYYY
     if (dateStr.includes('/')) {
         const parts = dateStr.split('/');
         if (parts.length === 3) {
@@ -122,33 +253,33 @@ function convertDateToISO(dateStr) {
             const month = parts[1].padStart(2, '0');
             const year = parts[2];
             
-            // 验证日期有效性
+            // Validar validade da data
             const date = new Date(year, month - 1, day);
             if (date.getFullYear() == year && date.getMonth() == month - 1 && date.getDate() == day) {
-                return date.toISOString().split('T')[0]; // 返回YYYY-MM-DD格式
+                return date.toISOString().split('T')[0]; // Retornar formato YYYY-MM-DD
             }
         }
     }
     
-    // 尝试直接解析
+    // Tentar análise direta
     try {
         const date = new Date(dateStr);
         if (!isNaN(date.getTime())) {
             return date.toISOString().split('T')[0];
         }
     } catch (e) {
-        console.warn('无法转换日期格式:', dateStr);
+        console.warn('Não é possível converter formato de data:', dateStr);
     }
     
     return null;
 }
 
-// 转换ISO日期格式为DD/MM/YYYY格式（本地显示）
+// Converter formato de data ISO para formato DD/MM/YYYY (exibição local)
 function convertISOToDisplayDate(isoDateStr) {
     if (!isoDateStr) return '';
     
     try {
-        // 处理YYYY-MM-DD格式
+        // Processar formato YYYY-MM-DD
         if (isoDateStr.includes('-') && !isoDateStr.includes('T')) {
             const parts = isoDateStr.split('-');
             if (parts.length === 3) {
@@ -159,7 +290,7 @@ function convertISOToDisplayDate(isoDateStr) {
             }
         }
         
-        // 处理完整ISO格式
+        // Processar formato ISO completo
         const date = new Date(isoDateStr);
         if (!isNaN(date.getTime())) {
             const day = date.getDate().toString().padStart(2, '0');
@@ -168,13 +299,13 @@ function convertISOToDisplayDate(isoDateStr) {
             return `${day}/${month}/${year}`;
         }
     } catch (e) {
-        console.warn('无法转换ISO日期格式:', isoDateStr);
+        console.warn('Não é possível converter formato de data ISO:', isoDateStr);
     }
     
-    return isoDateStr; // 如果转换失败，返回原始值
+    return isoDateStr; // Se a conversão falhar, retornar valor original
 }
 
-// 手动同步到云端
+// Sincronização manual para a nuvem
 async function manualSync() {
     if (!isCloudEnabled || syncInProgress) {
         showNotification(chatContext.language === 'zh' ? '云同步不可用或正在同步中' : 'Sincronização em nuvem indisponível ou em progresso', 'warning');
@@ -185,7 +316,7 @@ async function manualSync() {
         syncInProgress = true;
         updateSyncStatus(chatContext.language === 'zh' ? '同步中...' : 'Sincronizando...', 'syncing');
         
-        // 获取本地数据
+        // Obter dados locais
         const localRecords = JSON.parse(localStorage.getItem('accountRecords')) || [];
         
         if (localRecords.length === 0) {
@@ -218,7 +349,7 @@ async function manualSync() {
             .neq('id', 0); // 删除所有记录
         
         if (deleteError) {
-            console.warn('清空云端数据时出现警告:', deleteError);
+            console.warn('Aviso ao limpar dados da nuvem:', deleteError);
         }
         
         // 插入新数据
@@ -241,7 +372,7 @@ async function manualSync() {
         );
         
     } catch (error) {
-        console.error('同步失败:', error);
+        console.error('Falha na sincronização:', error);
         updateSyncStatus(chatContext.language === 'zh' ? '同步失败' : 'Falha na sincronização', 'error');
         showNotification(
             chatContext.language === 'zh' 
@@ -265,8 +396,8 @@ async function loadFromCloud() {
         syncInProgress = true;
         updateSyncStatus(chatContext.language === 'zh' ? '加载中...' : 'Carregando...', 'syncing');
         
-        console.log('正在从云端加载数据...');
-        console.log('表名:', window.DB_CONFIG.tableName);
+        console.log('Carregando dados da nuvem...');
+        console.log('Nome da tabela:', window.DB_CONFIG.tableName);
         console.log('Supabase URL:', window.SUPABASE_CONFIG.url);
         
         const { data, error } = await supabase
@@ -275,7 +406,7 @@ async function loadFromCloud() {
             .order('created_at', { ascending: false });
         
         if (error) {
-            console.error('Supabase查询错误:', error);
+            console.error('Erro de consulta Supabase:', error);
             
             // 检查是否是表不存在的错误
             if (error.code === 'PGRST205' || error.message.includes('Could not find the table')) {
@@ -291,7 +422,7 @@ async function loadFromCloud() {
             throw error;
         }
         
-        console.log('云端数据:', data);
+        console.log('Dados da nuvem:', data);
         
         if (!data || data.length === 0) {
             showNotification(chatContext.language === 'zh' ? '云端没有数据' : 'Nenhum dado na nuvem', 'info');
@@ -353,7 +484,7 @@ async function loadFromCloud() {
             
             // 检查是否已经处理过这个记录
             if (processedRecords.has(key)) {
-                console.warn('发现重复的本地记录，跳过:', localRecord);
+                console.warn('Registro local duplicado encontrado, pulando:', localRecord);
                 return;
             }
             
@@ -436,7 +567,7 @@ async function loadFromCloud() {
         );
         
     } catch (error) {
-        console.error('从云端加载失败:', error);
+        console.error('Falha ao carregar da nuvem:', error);
         updateSyncStatus(chatContext.language === 'zh' ? '加载失败' : 'Falha no carregamento', 'error');
         showNotification(
             chatContext.language === 'zh' 
@@ -500,6 +631,7 @@ const uiTexts = {
         paidAmount: '已收账',
         pendingAmount: '待收账',
         overdueCount: '逾期',
+        balance: '余额',
         // 搜索筛选
         customerSearch: '客户搜索',
         customerSearchPlaceholder: '输入客户名称',
@@ -543,11 +675,9 @@ const uiTexts = {
         paymentAmountPlaceholder: '0.00',
         paymentRemarkPlaceholder: '添加付款备注信息...',
         // 付款方式选项
-        paymentMethodTransfer: '银行转账',
-        paymentMethodCash: '现金',
-        paymentMethodAlipay: '支付宝',
-        paymentMethodWechat: '微信支付',
         paymentMethodPix: 'PIX',
+        paymentMethodTransfer: '转账',
+        paymentMethodCash: '现金',
         paymentMethodOther: '其他',
         // 付款通知消息
         recordNotFound: '记录不存在',
@@ -556,7 +686,13 @@ const uiTexts = {
         fillRequiredFields: '请填写所有必填字段并确保金额有效',
         recordNotFoundError: '找不到对应的记录',
         paymentExceedsRemaining: '付款金额不能超过剩余未付金额',
-        paymentRecordSuccess: '付款记录添加成功'
+        paymentRecordSuccess: '付款记录添加成功',
+        // 客户详情页面统计卡片
+        totalOrders: '总订单',
+        paidOrders: '已付款',
+        unpaidOrders: '未付款',
+        orderRecords: '订单记录',
+        paymentRecords: '付款记录'
     },
     pt: {
         navTitle: 'Sistema de Gestão de Cobrança',
@@ -585,6 +721,7 @@ const uiTexts = {
         paidAmount: 'Recebido',
         pendingAmount: 'Pendente',
         overdueCount: 'Vencido',
+
         // 搜索筛选
         customerSearch: 'Buscar Cliente',
         customerSearchPlaceholder: 'Digite o nome do cliente',
@@ -628,11 +765,9 @@ const uiTexts = {
         paymentAmountPlaceholder: '0,00',
         paymentRemarkPlaceholder: 'Adicionar observações do pagamento...',
         // 付款方式选项
-        paymentMethodTransfer: 'Transferência Bancária',
-        paymentMethodCash: 'Dinheiro',
-        paymentMethodAlipay: 'Alipay',
-        paymentMethodWechat: 'WeChat Pay',
         paymentMethodPix: 'PIX',
+        paymentMethodTransfer: 'Transferência',
+        paymentMethodCash: 'Dinheiro',
         paymentMethodOther: 'Outros',
         // 付款通知消息
         recordNotFound: 'Registro não encontrado',
@@ -642,6 +777,12 @@ const uiTexts = {
         recordNotFoundError: 'Registro correspondente não encontrado',
         paymentExceedsRemaining: 'O valor do pagamento não pode exceder o valor restante não pago',
         paymentRecordSuccess: 'Registro de pagamento adicionado com sucesso',
+        // 客户详情页面统计卡片
+        totalOrders: 'Total de Pedidos',
+        paidOrders: 'Pagos',
+        unpaidOrders: 'Não Pagos',
+        orderRecords: 'Registros de Pedidos',
+        paymentRecords: 'Registros de Pagamentos',
         // 报表相关翻译
         reportTitle: 'Relatório de Gestão de Cobrança',
         reportGeneratedTime: 'Hora de Geração',
@@ -722,7 +863,7 @@ uiTexts.pt.noCloudData = 'Nenhum dado na nuvem';
 uiTexts.pt.syncUnavailable = 'Sincronização em nuvem indisponível ou em progresso';
 
 // 客户管理相关葡萄牙语翻译
-uiTexts.pt.customerManagement = 'Gestão de Clientes';
+uiTexts.pt.customerManagement = 'Clientes';
 uiTexts.pt.customerList = 'Lista de Clientes';
 uiTexts.pt.customerDetails = 'Detalhes do Cliente';
 uiTexts.pt.addCustomer = 'Adicionar Cliente';
@@ -778,7 +919,7 @@ uiTexts.zh.noCustomerSelected = '请选择客户查看详情';
 uiTexts.zh.totalOrderAmount = '总订单金额';
 uiTexts.zh.totalPaidAmount = '已付金额';
 uiTexts.zh.totalUnpaidAmount = '未付金额';
-uiTexts.zh.ordersTab = '订单';
+uiTexts.zh.ordersTab = '订单记录';
 uiTexts.zh.paymentsTab = '付款记录';
 uiTexts.zh.customerName = '客户名称';
 uiTexts.zh.contactPerson = '联系人';
@@ -931,7 +1072,21 @@ uiTexts.pt.accountingRecordsTab = 'Registros de Cobrança';
 uiTexts.pt.accountingInfo = 'Informações de Cobrança';
 uiTexts.pt.totalRecords = 'Total de Registros';
 uiTexts.pt.overdueAmount = 'Valor Vencido';
-uiTexts.pt.balance = 'Saldo';
+
+
+// 初始化语言选择器
+function initLanguageSelector() {
+    // 检测浏览器语言，如果是中文环境则默认中文，否则葡萄牙语
+    const browserLang = navigator.language || navigator.userLanguage;
+    const defaultLang = browserLang.startsWith('zh') ? 'zh' : 'pt';
+    const savedLang = localStorage.getItem('selectedLanguage') || defaultLang;
+    chatContext.language = savedLang;
+    const languageSelect = document.getElementById('languageSelect');
+    if (languageSelect) {
+        languageSelect.value = savedLang;
+        updateUILanguage(savedLang);
+    }
+}
 
 // 语言切换函数
 function changeLanguage() {
@@ -999,6 +1154,7 @@ function updateUILanguage(lang) {
     const thOrderNumber = document.getElementById('thOrderNumber');
     const thCustomerName = document.getElementById('thCustomerName');
     const thAmount = document.getElementById('thAmount');
+    const thBalance = document.getElementById('thBalance');
     const thOrderDate = document.getElementById('thOrderDate');
     const thCreditDays = document.getElementById('thCreditDays');
     const thDueDate = document.getElementById('thDueDate');
@@ -1009,6 +1165,7 @@ function updateUILanguage(lang) {
     if (thOrderNumber) thOrderNumber.textContent = texts.thOrderNumber;
     if (thCustomerName) thCustomerName.textContent = texts.customerName;
     if (thAmount) thAmount.textContent = texts.amount;
+    if (thBalance) thBalance.textContent = texts.balance;
     if (thOrderDate) thOrderDate.textContent = texts.orderDate;
     if (thCreditDays) thCreditDays.textContent = texts.creditDays;
     if (thDueDate) thDueDate.textContent = texts.dueDate;
@@ -1194,12 +1351,10 @@ function updateUILanguage(lang) {
     const paymentMethod = document.getElementById('paymentMethod');
     if (paymentMethod) {
         const options = paymentMethod.options;
-        if (options[0]) options[0].textContent = texts.paymentMethodTransfer;
-        if (options[1]) options[1].textContent = texts.paymentMethodCash;
-        if (options[2]) options[2].textContent = texts.paymentMethodAlipay;
-        if (options[3]) options[3].textContent = texts.paymentMethodWechat;
-        if (options[4]) options[4].textContent = texts.paymentMethodPix;
-        if (options[5]) options[5].textContent = texts.paymentMethodOther;
+        if (options[0]) options[0].textContent = texts.paymentMethodPix;
+        if (options[1]) options[1].textContent = texts.paymentMethodTransfer;
+        if (options[2]) options[2].textContent = texts.paymentMethodCash;
+        if (options[3]) options[3].textContent = texts.paymentMethodOther;
     }
     
     // 更新付款表单占位符
@@ -1732,18 +1887,80 @@ function calculateDueDateFromData(orderDate, creditDays) {
 
 // 加载并显示记录
 function loadRecords() {
-    // 同步付款数据：确保paidAmount字段与payments数组一致
+    // 重新从localStorage加载数据
+    records = JSON.parse(localStorage.getItem('accountRecords')) || [];
+    
+    // 强制数据验证和自动修复（每次loadRecords都执行）
+    if (dataValidationEnabled) {
+        console.log('Executando verificação e reparo de validação de dados...');
+        
+        // 先进行数据验证
+        const errors = validateAllRecords();
+        
+        // 无论是否有错误都尝试自动修复，确保数据一致性
+        const fixedCount = autoFixDataInconsistencies();
+        
+        if (fixedCount > 0) {
+            console.log(`Reparados automaticamente ${fixedCount} problemas de dados`);
+            // 修复后重新加载数据
+            records = JSON.parse(localStorage.getItem('accountRecords')) || [];
+        }
+        
+        // 修复后重新验证
+        const remainingErrors = validateAllRecords();
+        
+        if (remainingErrors.length > 0) {
+            console.warn(`Após o reparo ainda há ${remainingErrors.length} problemas que precisam ser tratados manualmente`);
+            displayValidationErrors();
+        } else {
+            console.log('Validação de dados aprovada, todos os cálculos estão corretos');
+            // 隐藏之前的错误提示
+            const errorContainer = document.getElementById('validationErrors');
+            if (errorContainer) {
+                errorContainer.style.display = 'none';
+            }
+        }
+        
+        // 特别检查订单2516407的数据
+        const order2516407 = records.find(r => r.orderNumber === '2516407' || r.orderId === '2516407');
+        if (order2516407) {
+            const orderAmount = parseFloat(order2516407.amount || 0);
+            // 从payments数组计算实际已付金额
+            const actualPaidFromPayments = order2516407.payments ? 
+                order2516407.payments.reduce((sum, payment) => sum + (parseFloat(payment.amount) || 0), 0) : 0;
+            const currentPaidAmount = parseFloat(order2516407.paidAmount || 0);
+            const unpaidAmount = Math.max(0, orderAmount - actualPaidFromPayments);
+            console.log(`Verificação pedido 2516407: Total=${orderAmount.toFixed(2)}, Pago atual=${currentPaidAmount.toFixed(2)}, Pago real=${actualPaidFromPayments.toFixed(2)}, Não pago=${unpaidAmount.toFixed(2)}`);
+            
+            // 如果paidAmount字段与payments数组不一致，强制修复
+            if (Math.abs(currentPaidAmount - actualPaidFromPayments) > 0.01) {
+                console.warn(`Dados do pedido 2516407 inconsistentes, reparando paidAmount: ${currentPaidAmount} -> ${actualPaidFromPayments}`);
+                order2516407.paidAmount = actualPaidFromPayments;
+                localStorage.setItem('accountRecords', JSON.stringify(records));
+            }
+        }
+    }
+    
+    // 同步付款数据：确保paidAmount字段与payments数组一致（保留原有逻辑作为备用）
+    let dataChanged = false;
     records.forEach(record => {
         if (record.payments && Array.isArray(record.payments) && record.payments.length > 0) {
             const calculatedPaidAmount = record.payments.reduce((sum, payment) => 
                 sum + (parseFloat(payment.amount) || 0), 0
             );
             // 如果paidAmount字段不存在或不正确，更新它
-            if (!record.paidAmount || record.paidAmount !== calculatedPaidAmount) {
+            if (!record.paidAmount || Math.abs(record.paidAmount - calculatedPaidAmount) > 0.01) {
                 record.paidAmount = calculatedPaidAmount;
+                dataChanged = true;
             }
         }
     });
+    
+    // 如果数据有变化，保存回localStorage
+    if (dataChanged) {
+        localStorage.setItem('accountRecords', JSON.stringify(records));
+        console.log('Sincronização de dados concluída, salva no localStorage');
+    }
     
     const tbody = document.getElementById('recordsTable');
     tbody.innerHTML = '';
@@ -1759,22 +1976,34 @@ function loadRecords() {
     
     // 更新选择状态
     updateSelectionSummary();
+    // 确保统计卡片在数据加载后刷新
+    if (typeof updateStatistics === 'function') {
+        updateStatistics();
+    }
 }
 
 // 更新表格显示
 function updateTable() {
     // 同步付款数据：确保paidAmount字段与payments数组一致
+    let dataChanged = false;
     records.forEach(record => {
         if (record.payments && Array.isArray(record.payments) && record.payments.length > 0) {
             const calculatedPaidAmount = record.payments.reduce((sum, payment) => 
                 sum + (parseFloat(payment.amount) || 0), 0
             );
             // 如果paidAmount字段不存在或不正确，更新它
-            if (!record.paidAmount || record.paidAmount !== calculatedPaidAmount) {
+            if (!record.paidAmount || Math.abs(record.paidAmount - calculatedPaidAmount) > 0.01) {
                 record.paidAmount = calculatedPaidAmount;
+                dataChanged = true;
             }
         }
     });
+    
+    // 如果数据有变化，保存回localStorage
+    if (dataChanged) {
+        localStorage.setItem('accountRecords', JSON.stringify(records));
+        console.log('Sincronização de dados concluída durante atualização da tabela, salva no localStorage');
+    }
     
     const tbody = document.getElementById('recordsTable');
     tbody.innerHTML = '';
@@ -1790,6 +2019,10 @@ function updateTable() {
     
     // 更新选择状态
     updateSelectionSummary();
+    // 刷新统计卡片
+    if (typeof updateStatistics === 'function') {
+        updateStatistics();
+    }
 }
 
 // 创建记录行
@@ -1814,8 +2047,31 @@ function createRecordRow(record, index, serialNumber) {
     const texts = uiTexts[lang];
     
     // 状态选择下拉框和付款信息
-    const paidAmount = record.paidAmount || 0;
-    const remainingAmount = record.amount - paidAmount;
+    // 强制从payments数组重新计算实际付款金额，确保数据准确性
+    const actualPaidAmount = record.payments ? record.payments.reduce((sum, payment) => sum + parseFloat(payment.amount || 0), 0) : 0;
+    const paidAmount = actualPaidAmount; // 使用实际计算的金额而不是存储的字段
+    const remainingAmount = Math.max(0, parseFloat(record.amount || 0) - actualPaidAmount); // 使用实际付款金额计算剩余金额
+    
+    // 强制同步paidAmount字段与payments数组
+    const storedPaidAmount = parseFloat(record.paidAmount || 0);
+    if (Math.abs(storedPaidAmount - actualPaidAmount) > 0.01) {
+        console.log(`🔧 Pedido ${record.id || record.orderNumber || 'desconhecido'}: reparando paidAmount de ${storedPaidAmount.toFixed(2)} para ${actualPaidAmount.toFixed(2)}`);
+        record.paidAmount = actualPaidAmount;
+        
+        // 立即更新localStorage中的数据
+        const currentRecords = JSON.parse(localStorage.getItem('accountRecords') || '[]');
+        const recordIndex = currentRecords.findIndex(r => 
+            (r.id && r.id === record.id) || 
+            (r.orderNumber && r.orderNumber === record.orderNumber) ||
+            (r.orderId && r.orderId === record.orderId)
+        );
+        
+        if (recordIndex !== -1) {
+            currentRecords[recordIndex].paidAmount = actualPaidAmount;
+            localStorage.setItem('accountRecords', JSON.stringify(currentRecords));
+            console.log(`✅ Pedido ${record.orderNumber || record.id} paidAmount sincronizado e atualizado`);
+        }
+    }
     
     const statusOptions = `
         <div>
@@ -1850,6 +2106,7 @@ function createRecordRow(record, index, serialNumber) {
         <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 editable-cell" data-field="amount" data-index="${index}" data-tooltip="${tooltipText}" ondblclick="editCell(this)">
             ${formatCurrency(record.amount)}
         </td>
+
 
         <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 editable-cell hide-mobile" data-field="orderDate" data-index="${index}" data-tooltip="${tooltipText}" ondblclick="editCell(this)">
             ${formatDate(record.orderDate) || '-'}
@@ -2170,28 +2427,41 @@ function parseAmountValue(formattedValue) {
 
 // 更新统计信息
 function updateStatistics() {
-    // 确保amount字段是数字类型
-    const totalAmount = records.reduce((sum, record) => {
-        const amount = typeof record.amount === 'number' ? record.amount : parseFloat(record.amount) || 0;
-        return sum + amount;
-    }, 0);
-    
-    const paidAmount = records.reduce((sum, record) => {
-        const paid = typeof record.paidAmount === 'number' ? record.paidAmount : parseFloat(record.paidAmount) || 0;
-        return sum + paid;
-    }, 0);
-    
-    const pendingAmount = totalAmount - paidAmount;
-    
+    let totalAmount = 0;
+    let paidAmount = 0;
+    let pendingAmount = 0;
+    let overdueCount = 0;
     const today = new Date();
-    const overdueCount = records.filter(record => {
-        const dueDate = parseDDMMYYYYToDate(record.dueDate);
-        const paidAmount = typeof record.paidAmount === 'number' ? record.paidAmount : parseFloat(record.paidAmount) || 0;
-        const remainingAmount = record.amount - paidAmount;
-        return remainingAmount > 0 && dueDate && dueDate < today;
-    }).length;
     
-    // 使用巴西货币格式显示所有金额
+    // 遍历所有记录计算统计数据
+    records.forEach(record => {
+        // 计算总金额
+        const amount = parseFloat(record.amount) || 0;
+        totalAmount += amount;
+        
+        // 从payments数组计算实际已付金额
+        let actualPaid = 0;
+        if (record.payments && Array.isArray(record.payments)) {
+            actualPaid = record.payments.reduce((sum, payment) => {
+                return sum + (parseFloat(payment.amount) || 0);
+            }, 0);
+        }
+        paidAmount += actualPaid;
+        
+        // 计算未付金额
+        const remainingAmount = amount - actualPaid;
+        if (remainingAmount > 0) {
+            pendingAmount += remainingAmount;
+        }
+        
+        // 计算逾期订单数量
+        const dueDate = parseDDMMYYYYToDate(record.dueDate);
+        if (remainingAmount > 0 && dueDate && dueDate < today) {
+            overdueCount++;
+        }
+    });
+    
+    // 更新页面显示
     document.getElementById('totalAmount').textContent = formatCurrency(totalAmount);
     document.getElementById('paidAmount').textContent = formatCurrency(paidAmount);
     document.getElementById('pendingAmount').textContent = formatCurrency(pendingAmount);
@@ -2251,14 +2521,13 @@ function generateReport() {
         stats.total += amount;
         stats.count++;
         
-        // 使用 paidAmount 计算已收金额
-        const paidAmount = typeof record.paidAmount === 'number' ? record.paidAmount : parseFloat(record.paidAmount) || 0;
-        stats.paid += paidAmount;
+        // 从payments数组计算实际已付金额
+        const actualPaidAmount = record.payments ? record.payments.reduce((sum, payment) => sum + parseFloat(payment.amount || 0), 0) : 0;
+        stats.paid += actualPaidAmount;
         
-        // 计算剩余未收金额
-        const remainingAmount = amount - paidAmount;
-        
-        if (record.status !== 'paid' && remainingAmount > 0) {
+        // 计算剩余金额
+        const remainingAmount = Math.max(0, amount - actualPaidAmount);
+        if (remainingAmount > 0) {
             const dueDate = parseDDMMYYYYToDate(record.dueDate) || new Date(record.dueDate);
             if (dueDate < today) {
                 stats.overdue += remainingAmount;
@@ -2284,7 +2553,9 @@ function generateReport() {
         
         monthlyStats[month].total += amount;
         monthlyStats[month].paid += paidAmount;
-        monthlyStats[month].pending += remainingAmount;
+        if (remainingAmount > 0) {
+            monthlyStats[month].pending += remainingAmount;
+        }
     });
     
     const reportHtml = `
@@ -2293,16 +2564,18 @@ function generateReport() {
             <div class="bg-gray-50 p-4 rounded-lg">
                 <h4 class="text-lg font-semibold mb-4">${texts.overallStats}</h4>
                 <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+
                     <div class="text-center">
-                        <div class="text-2xl font-bold text-blue-600">${currencySymbol}${records.reduce((sum, r) => sum + (parseFloat(r.amount) || 0), 0).toLocaleString(locale, {minimumFractionDigits: 2})}</div>
-                        <div class="text-sm text-gray-600">${texts.totalAmountReport}</div>
-                    </div>
-                    <div class="text-center">
-                        <div class="text-2xl font-bold text-green-600">${currencySymbol}${records.filter(r => r.status === 'paid').reduce((sum, r) => sum + (parseFloat(r.amount) || 0), 0).toLocaleString(locale, {minimumFractionDigits: 2})}</div>
+                        <div class="text-2xl font-bold text-green-600">${currencySymbol}${records.reduce((sum, r) => sum + (parseFloat(r.paidAmount) || 0), 0).toLocaleString(locale, {minimumFractionDigits: 2})}</div>
                         <div class="text-sm text-gray-600">${texts.paidAmountReport}</div>
                     </div>
                     <div class="text-center">
-                        <div class="text-2xl font-bold text-yellow-600">${currencySymbol}${records.filter(r => r.status !== 'paid').reduce((sum, r) => sum + (parseFloat(r.amount) || 0), 0).toLocaleString(locale, {minimumFractionDigits: 2})}</div>
+                        <div class="text-2xl font-bold text-orange-600">${currencySymbol}${records.reduce((sum, r) => {
+                            const amount = parseFloat(r.amount) || 0;
+                            const paid = parseFloat(r.paidAmount) || 0;
+                            const remaining = Math.max(0, amount - paid);
+                            return sum + remaining;
+                        }, 0).toLocaleString(locale, {minimumFractionDigits: 2})}</div>
                         <div class="text-sm text-gray-600">${texts.pendingAmountReport}</div>
                     </div>
                     <div class="text-center">
@@ -2333,7 +2606,7 @@ function generateReport() {
                                     <td class="px-4 py-2">${customer}</td>
                                     <td class="px-4 py-2 text-right">${currencySymbol}${stats.total.toLocaleString(locale, {minimumFractionDigits: 2})}</td>
                                     <td class="px-4 py-2 text-right text-green-600">${currencySymbol}${stats.paid.toLocaleString(locale, {minimumFractionDigits: 2})}</td>
-                                    <td class="px-4 py-2 text-right text-yellow-600">${currencySymbol}${stats.pending.toLocaleString(locale, {minimumFractionDigits: 2})}</td>
+                                    <td class="px-4 py-2 text-right text-orange-600">${currencySymbol}${stats.pending.toLocaleString(locale, {minimumFractionDigits: 2})}</td>
                                     <td class="px-4 py-2 text-right text-red-600">${currencySymbol}${stats.overdue.toLocaleString(locale, {minimumFractionDigits: 2})}</td>
                                     <td class="px-4 py-2 text-right">${stats.count}</td>
                                 </tr>
@@ -2363,7 +2636,7 @@ function generateReport() {
                                     <td class="px-4 py-2">${month}</td>
                                     <td class="px-4 py-2 text-right">${currencySymbol}${stats.total.toLocaleString(locale, {minimumFractionDigits: 2})}</td>
                                     <td class="px-4 py-2 text-right text-green-600">${currencySymbol}${stats.paid.toLocaleString(locale, {minimumFractionDigits: 2})}</td>
-                                    <td class="px-4 py-2 text-right text-yellow-600">${currencySymbol}${stats.pending.toLocaleString(locale, {minimumFractionDigits: 2})}</td>
+                                    <td class="px-4 py-2 text-right text-orange-600">${currencySymbol}${stats.pending.toLocaleString(locale, {minimumFractionDigits: 2})}</td>
                                     <td class="px-4 py-2 text-right">${stats.total > 0 ? ((stats.paid / stats.total) * 100).toFixed(1) : '0.0'}%</td>
                                 </tr>
                             `).join('')}
@@ -2974,7 +3247,7 @@ function processImport() {
                         records.push(record);
                         successCount++;
                     } catch (error) {
-                        console.error(`第${index + 1}行导入失败:`, error.message);
+                        console.error(`Falha na importação da linha ${index + 1}:`, error.message);
                         errorCount++;
                     }
                 });
@@ -3006,7 +3279,7 @@ function processImport() {
                 showNotification(message, 'error');
             }
         } catch (error) {
-            console.error('导入文件时出错:', error);
+            console.error('Erro ao importar arquivo:', error);
             const currentLang = localStorage.getItem('selectedLanguage') || 'zh';
             let message;
             if (error.message.includes('缺少必需的列')) {
@@ -3124,12 +3397,12 @@ function exportToPDF() {
         stats.total += record.amount;
         stats.count++;
         
-        // 使用 paidAmount 计算已收金额
-        const paidAmount = typeof record.paidAmount === 'number' ? record.paidAmount : parseFloat(record.paidAmount) || 0;
-        stats.paid += paidAmount;
+        // 从payments数组计算实际已付金额
+        const actualPaidAmount = record.payments ? record.payments.reduce((sum, payment) => sum + parseFloat(payment.amount || 0), 0) : 0;
+        stats.paid += actualPaidAmount;
         
         // 计算剩余未付金额
-        const remainingAmount = record.amount - paidAmount;
+        const remainingAmount = Math.max(0, record.amount - actualPaidAmount);
         if (remainingAmount > 0) {
             const dueDate = parseDDMMYYYYToDate(record.dueDate) || new Date(record.dueDate);
             if (dueDate < new Date()) {
@@ -3171,8 +3444,8 @@ function exportToPDF() {
             monthlyStats[month] = { total: 0, paid: 0, pending: 0 };
         }
         
-        const paidAmount = record.paidAmount || 0;
-        const remainingAmount = record.amount - paidAmount;
+        const actualPaidAmount = record.payments ? record.payments.reduce((sum, payment) => sum + parseFloat(payment.amount || 0), 0) : 0;
+        const remainingAmount = Math.max(0, record.amount - actualPaidAmount);
         
         monthlyStats[month].total += record.amount;
         monthlyStats[month].paid += paidAmount;
@@ -3413,12 +3686,12 @@ function generateReportHTML(selectedRecords) {
             }
         }
         
-        // 计算已付金额
-        const paidAmount = record.paidAmount || 0;
-        totalPaidAmount += paidAmount;
+        // 从payments数组计算实际已付金额
+        const actualPaidAmount = record.payments ? record.payments.reduce((sum, payment) => sum + parseFloat(payment.amount || 0), 0) : 0;
+        totalPaidAmount += actualPaidAmount;
         
         // 计算剩余金额
-        const remainingAmount = (record.amount || 0) - paidAmount;
+        const remainingAmount = Math.max(0, (record.amount || 0) - actualPaidAmount);
         totalRemainingAmount += remainingAmount;
     });
     
@@ -3432,7 +3705,7 @@ function generateReportHTML(selectedRecords) {
     let tableRows = '';
     selectedRecords.forEach((record, index) => {
         const paidAmount = record.paidAmount || 0;
-        const remainingAmount = (record.amount || 0) - paidAmount;
+        const remainingAmount = Math.max(0, (record.amount || 0) - paidAmount);
         
         // 生成付款记录详情
         let paymentDetails = '';
@@ -3594,8 +3867,8 @@ function viewPaymentRecords(index) {
     }
     
     const payments = record.payments || [];
-    const paidAmount = record.paidAmount || 0;
-    const remainingAmount = record.amount - paidAmount;
+    const actualPaidAmount = record.payments ? record.payments.reduce((sum, payment) => sum + parseFloat(payment.amount || 0), 0) : 0;
+        const remainingAmount = Math.max(0, record.amount - actualPaidAmount);
     
     // 创建付款记录模态框
     const modal = document.createElement('div');
@@ -3850,13 +4123,13 @@ function deleteCustomerRecords(customerNames) {
             : `${deletedCount} registros excluídos`;
         showNotification(message, 'success');
         
-        console.log(`删除了 ${deletedCount} 条记录，涉及客户: ${customerNames.join(', ')}`);
+        console.log(`Excluídos ${deletedCount} registros, clientes envolvidos: ${customerNames.join(', ')}`);
     } else {
         const message = lang === 'zh' 
             ? '未找到相关记录' 
             : 'Nenhum registro encontrado';
         showNotification(message, 'warning');
-        console.log(`未找到客户记录: ${customerNames.join(', ')}`);
+        console.log(`Registros de clientes não encontrados: ${customerNames.join(', ')}`);
     }
     
     return deletedCount;
@@ -3866,4 +4139,34 @@ function deleteCustomerRecords(customerNames) {
 function deleteSpecificCustomerOrders() {
     const customersToDelete = ['ABC贸易公司', 'XYZ建筑公司'];
     return deleteCustomerRecords(customersToDelete);
+}
+
+// 切换客户管理面板的显示/隐藏
+function toggleCustomerPanel() {
+    const customerPanel = document.getElementById('customerPanel');
+    const recordsPanel = document.getElementById('recordsPanel');
+    const toggleIcon = document.getElementById('toggleIcon');
+    const toggleButton = document.getElementById('toggleCustomerPanel');
+    
+    if (customerPanel.style.display === 'none' || customerPanel.classList.contains('hidden')) {
+        // 显示客户面板
+        customerPanel.style.display = 'block';
+        customerPanel.classList.remove('hidden');
+        customerPanel.classList.add('lg:col-span-1');
+        recordsPanel.classList.remove('lg:col-span-5');
+        recordsPanel.classList.add('lg:col-span-4');
+        toggleIcon.classList.remove('fa-chevron-right');
+        toggleIcon.classList.add('fa-chevron-left');
+        toggleButton.style.left = '4px';
+    } else {
+        // 隐藏客户面板
+        customerPanel.style.display = 'none';
+        customerPanel.classList.add('hidden');
+        customerPanel.classList.remove('lg:col-span-1');
+        recordsPanel.classList.remove('lg:col-span-4');
+        recordsPanel.classList.add('lg:col-span-5');
+        toggleIcon.classList.remove('fa-chevron-left');
+        toggleIcon.classList.add('fa-chevron-right');
+        toggleButton.style.left = '4px';
+    }
 }

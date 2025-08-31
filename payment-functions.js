@@ -119,7 +119,7 @@ function handlePaymentSubmit(e) {
     
     // 检查付款金额是否超过记录金额
     const currentPaid = record.paidAmount || 0;
-    const remainingAmount = record.amount - currentPaid;
+    const remainingAmount = Math.max(0, record.amount - currentPaid);
     
     if (paymentAmount > remainingAmount) {
         showNotification(`${texts.paymentExceedsRemaining} ${formatCurrency(remainingAmount)}`, 'error');
@@ -144,8 +144,8 @@ function handlePaymentSubmit(e) {
     // 添加付款记录
     record.payments.push(payment);
     
-    // 更新已付金额
-    record.paidAmount = (record.paidAmount || 0) + paymentAmount;
+    // 重新计算已付金额（从payments数组计算，确保准确性）
+    record.paidAmount = record.payments.reduce((sum, p) => sum + (parseFloat(p.amount) || 0), 0);
     
     // 更新记录状态
     if (record.paidAmount >= record.amount) {
@@ -188,11 +188,9 @@ function getPaymentMethodText(method) {
     const texts = uiTexts[lang];
     
     const methods = {
+        'pix': texts.paymentMethodPix,
         'transfer': texts.paymentMethodTransfer,
         'cash': texts.paymentMethodCash,
-        'alipay': texts.paymentMethodAlipay,
-        'wechat': texts.paymentMethodWechat,
-        'pix': texts.paymentMethodPix,
         'other': texts.paymentMethodOther
     };
     return methods[method] || method;

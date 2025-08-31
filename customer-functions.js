@@ -15,18 +15,18 @@ let customers = [
 
 // DOM元素引用
 let selectedCustomerId = null;
-const customerListContainer = document.getElementById('customer-list');
-const customerDetailsPanel = document.getElementById('customer-details');
-const customerInfo = document.getElementById('current-customer-info');
-const customerSummaryCards = document.querySelector('#customer-summary .grid');
-const customerOrdersContainer = document.getElementById('orders-list');
-const customerPaymentsContainer = document.getElementById('payments-list');
-const customerSearchInput = document.getElementById('customer-search');
+let customerListContainer, customerDetailsPanel, customerInfo, customerSummaryCards;
+let customerOrdersContainer, customerPaymentsContainer, customerSearchInput;
 
 // 模态框元素和表单元素将在需要时动态获取
 
 // 渲染客户列表
 function renderCustomers() {
+    // 确保DOM元素已初始化
+    if (!customerListContainer || !customerSearchInput) {
+        return;
+    }
+    
     const lang = localStorage.getItem('selectedLanguage') || 'pt';
     const texts = uiTexts[lang];
     
@@ -44,7 +44,7 @@ function renderCustomers() {
         const paidAmount = customer.orders.reduce((sum, order) => {
             return sum + order.payments.reduce((paySum, payment) => paySum + payment.amount, 0);
         }, 0);
-        const remainingAmount = totalAmount - paidAmount;
+        const remainingAmount = Math.max(0, totalAmount - paidAmount);
         
         const customerItem = document.createElement('div');
         customerItem.className = `customer-item p-4 border border-gray-200 rounded-lg cursor-pointer hover:bg-gray-50 transition-colors ${
@@ -53,16 +53,9 @@ function renderCustomers() {
         customerItem.onclick = () => selectCustomer(customer.id);
         
         customerItem.innerHTML = `
-            <div class="flex justify-between items-start">
-                <div class="flex-1">
-                    <h4 class="font-semibold text-gray-800">${customer.name}</h4>
-                    <p class="text-sm text-gray-600 mt-1">
-                        <i class="fas fa-user mr-1"></i>${customer.contact}
-                        <span class="ml-3"><i class="fas fa-phone mr-1"></i>${customer.phone}</span>
-                    </p>
-                    ${customer.remark ? `<p class="text-xs text-gray-500 mt-1">${customer.remark}</p>` : ''}
-                </div>
-                <div class="text-right">
+            <div>
+                <h4 class="font-semibold text-gray-800">${customer.name}</h4>
+                <div class="mt-2 mb-2">
                     <div class="text-sm font-medium ${remainingAmount > 0 ? 'text-red-600' : 'text-green-600'}">
                         R$ ${remainingAmount.toLocaleString('pt-BR')}
                     </div>
@@ -70,6 +63,12 @@ function renderCustomers() {
                         ${customer.orders.length} ${texts.ordersCount}
                     </div>
                 </div>
+                ${(customer.contact && customer.contact.trim() !== '' && customer.contact !== 'undefined') || (customer.phone && customer.phone.trim() !== '' && customer.phone !== 'undefined') ? `
+                <p class="text-sm text-gray-600">
+                    ${customer.contact && customer.contact.trim() !== '' && customer.contact !== 'undefined' ? `<i class="fas fa-user mr-1"></i>${customer.contact}` : ''}
+                    ${customer.phone && customer.phone.trim() !== '' && customer.phone !== 'undefined' ? `<span class="ml-3"><i class="fas fa-phone mr-1"></i>${customer.phone}</span>` : ''}
+                </p>` : ''}
+                ${customer.remark ? `<p class="text-xs text-gray-500 mt-1">${customer.remark}</p>` : ''}
             </div>
         `;
         
@@ -79,6 +78,294 @@ function renderCustomers() {
 
 // 选择客户
 function selectCustomer(customerId) {
+    selectedCustomerId = customerId;
+    const customer = customers.find(c => c.id === customerId);
+    
+    if (!customer) return;
+    
+    // 显示客户详情模态框
+    showCustomerDetailModal(customer);
+}
+
+// 显示客户详情模态框
+function showCustomerDetailModal(customer) {
+    const modal = document.getElementById('customerDetailModal');
+    const title = document.getElementById('customerDetailTitle');
+    const content = document.getElementById('customerDetailContent');
+    
+    if (!modal || !content) return;
+    
+    // 设置标题
+    if (title) {
+        title.textContent = customer.name;
+    }
+    
+    // 生成客户详情内容
+    content.innerHTML = generateCustomerDetailContent(customer);
+    
+    // 显示模态框
+    modal.classList.remove('hidden');
+}
+
+// 关闭客户详情模态框
+function closeCustomerDetailModal() {
+    const modal = document.getElementById('customerDetailModal');
+    if (modal) {
+        modal.classList.add('hidden');
+    }
+}
+
+// 编辑客户信息
+function editCustomerInfo() {
+    if (!selectedCustomerId) return;
+    
+    const customer = customers.find(c => c.id === selectedCustomerId);
+    if (!customer) return;
+    
+    // 填充编辑表单
+    document.getElementById('customerNameInput').value = customer.name || '';
+    document.getElementById('customerContactInput').value = customer.contact || '';
+    document.getElementById('customerPhoneInput').value = customer.phone || '';
+    document.getElementById('customerRemarkInput').value = customer.remark || '';
+    
+    // 更改模态框标题
+    const lang = localStorage.getItem('selectedLanguage') || 'pt';
+    const addCustomerModalTitle = document.getElementById('addCustomerModalTitle');
+    if (addCustomerModalTitle) {
+        addCustomerModalTitle.textContent = lang === 'zh' ? '编辑客户信息' : 'Editar Informações do Cliente';
+    }
+    
+    // 关闭客户详情模态框
+    closeCustomerDetailModal();
+    
+    // 显示编辑模态框
+    showCustomerModal();
+    
+    // 标记为编辑模式
+    window.isEditingCustomer = true;
+    window.editingCustomerId = selectedCustomerId;
+}
+
+// 生成客户详情内容
+function generateCustomerDetailContent(customer) {
+    const lang = localStorage.getItem('selectedLanguage') || 'pt';
+    const texts = uiTexts[lang];
+    
+    // 计算统计数据
+    const totalAmount = customer.orders ? customer.orders.reduce((sum, order) => sum + (order.amount || 0), 0) : 0;
+    
+    // 计算付款统计
+    let totalPaid = 0;
+    
+    if (customer.orders) {
+        customer.orders.forEach(order => {
+            const orderPayments = order.payments || [];
+            const orderPaid = orderPayments.reduce((sum, payment) => sum + (payment.amount || 0), 0);
+            totalPaid += orderPaid;
+        });
+    }
+    
+    const unpaidAmount = totalAmount - totalPaid;
+    
+    return `
+        ${generateCustomerInfoSection(customer, texts)}
+        
+        <div class="grid grid-cols-3 gap-4 mb-6">
+            <div class="bg-blue-50 p-4 rounded-lg text-center">
+                <div class="text-sm text-gray-600">${texts.totalOrders || 'Total de Pedidos'}</div>
+                <div class="text-lg font-semibold text-blue-600">R$ ${totalAmount.toFixed(2)}</div>
+            </div>
+            <div class="bg-green-50 p-4 rounded-lg text-center">
+                <div class="text-sm text-gray-600">${texts.paidOrders || 'Pagos'}</div>
+                <div class="text-lg font-semibold text-green-600">R$ ${totalPaid.toFixed(2)}</div>
+            </div>
+            <div class="bg-yellow-50 p-4 rounded-lg text-center">
+                <div class="text-sm text-gray-600">${texts.unpaidOrders || 'Não Pagos'}</div>
+                <div class="text-lg font-semibold text-yellow-600">R$ ${unpaidAmount.toFixed(2)}</div>
+            </div>
+        </div>
+        
+        <div class="grid grid-cols-2 gap-6">
+            <div>
+                <h4 class="font-semibold text-gray-800 mb-3">${texts.orderRecords || 'Registros de Pedidos'}</h4>
+                <div class="max-h-60 overflow-y-auto">
+                    ${generateOrdersList(customer)}
+                </div>
+            </div>
+            
+            <div>
+                <h4 class="font-semibold text-gray-800 mb-3">${texts.paymentRecords || 'Registros de Pagamentos'}</h4>
+                <div class="max-h-60 overflow-y-auto">
+                    ${generatePaymentsList(customer)}
+                </div>
+            </div>
+        </div>
+    `;
+}
+
+// 生成客户信息部分（条件显示）
+function generateCustomerInfoSection(customer, texts) {
+    // 检查是否有任何客户详细信息
+    const hasContact = customer.contact && customer.contact.trim() !== '' && customer.contact !== 'undefined';
+    const hasPhone = customer.phone && customer.phone.trim() !== '' && customer.phone !== 'undefined';
+    const hasRemark = customer.remark && customer.remark.trim() !== '' && customer.remark !== 'undefined';
+    
+    // 如果没有任何详细信息，则不显示客户信息部分
+    if (!hasContact && !hasPhone && !hasRemark) {
+        return '';
+    }
+    
+    // 构建信息项数组
+    const infoItems = [];
+    
+    if (hasContact) {
+        infoItems.push(`<div><span class="font-medium">${texts.contact || '联系人'}:</span> ${customer.contact}</div>`);
+    }
+    
+    if (hasPhone) {
+        infoItems.push(`<div><span class="font-medium">${texts.phone || '电话'}:</span> ${customer.phone}</div>`);
+    }
+    
+    if (hasRemark) {
+        infoItems.push(`<div class="col-span-2"><span class="font-medium">${texts.remark || '备注'}:</span> ${customer.remark}</div>`);
+    }
+    
+    return `
+        <div class="bg-gray-50 p-4 rounded-lg mb-6">
+            <h4 class="font-semibold text-gray-800 mb-3">${texts.customerInfo || '客户信息'}</h4>
+            <div class="grid grid-cols-2 gap-4 text-sm">
+                ${infoItems.join('')}
+            </div>
+        </div>
+    `;
+}
+
+// 生成订单列表
+function generateOrdersList(customer) {
+    // 从全局records数组中获取该客户的订单记录
+    const customerOrders = [];
+    const lang = localStorage.getItem('selectedLanguage') || 'pt';
+    
+    if (typeof records !== 'undefined' && Array.isArray(records)) {
+        // 从收账记录中筛选出该客户的订单
+        customerOrders.push(...records.filter(record => 
+            record.customerName && record.customerName.trim() === customer.name.trim()
+        ));
+    }
+    
+    if (customerOrders.length === 0) {
+        return `<div class="text-center py-4 text-gray-500">${lang === 'zh' ? '该客户暂无订单记录' : 'Este cliente não possui pedidos'}</div>`;
+    }
+    
+    return customerOrders.map(record => {
+        const orderPayments = record.payments || [];
+        const totalPaid = orderPayments.reduce((sum, payment) => sum + (parseFloat(payment.amount) || 0), 0);
+        const orderAmount = parseFloat(record.amount) || 0;
+        const unpaidAmount = orderAmount - totalPaid;
+        const paymentProgress = orderAmount > 0 ? (totalPaid / orderAmount) * 100 : 0;
+        const isPaid = totalPaid >= orderAmount;
+        
+        return `
+            <div class="bg-white p-4 rounded-lg border mb-3 shadow-sm">
+                <div class="flex items-center justify-between mb-2">
+                    <div class="flex items-center">
+                        <div class="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center mr-3">
+                            <svg class="w-4 h-4 text-blue-600" fill="currentColor" viewBox="0 0 20 20">
+                                <path d="M3 4a1 1 0 011-1h12a1 1 0 011 1v2a1 1 0 01-1 1H4a1 1 0 01-1-1V4zM3 10a1 1 0 011-1h6a1 1 0 011 1v6a1 1 0 01-1 1H4a1 1 0 01-1-1v-6zM14 9a1 1 0 00-1 1v6a1 1 0 001 1h2a1 1 0 001-1v-6a1 1 0 00-1-1h-2z"></path>
+                            </svg>
+                        </div>
+                        <div>
+                            <div class="font-semibold text-gray-800">${record.orderNumber || record.nf || record.id || (lang === 'zh' ? '订单' : 'Pedido')}</div>
+                            <div class="text-sm text-gray-500">${formatDate ? formatDate(record.orderDate) : record.orderDate}</div>
+                        </div>
+                    </div>
+                    <div class="text-right">
+                        <div class="font-bold text-lg">R$ ${orderAmount.toFixed(2)}</div>
+                        <div class="text-sm ${isPaid ? 'text-green-600' : 'text-red-600'}">
+                            ${isPaid ? (lang === 'zh' ? '已付清' : 'Pago') : (lang === 'zh' ? `未付: R$ ${unpaidAmount.toFixed(2)}` : `Pendente: R$ ${unpaidAmount.toFixed(2)}`)}
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="mt-3">
+                    <div class="flex justify-between text-sm text-gray-600 mb-1">
+                        <span>${lang === 'zh' ? '付款进度' : 'Progresso do Pagamento'}</span>
+                        <span>${paymentProgress.toFixed(1)}%</span>
+                    </div>
+                    <div class="w-full bg-gray-200 rounded-full h-2">
+                        <div class="h-2 rounded-full transition-all duration-300" style="width: ${paymentProgress}%; background-color: ${paymentProgress >= 100 ? '#10b981' : paymentProgress >= 50 ? '#f59e0b' : '#ef4444'};"></div>
+                    </div>
+                </div>
+                
+                ${orderPayments.length > 0 ? `
+                <div class="mt-3 border-t pt-3">
+                    <div class="space-y-2">
+                        ${orderPayments.map(payment => `
+                            <div class="flex justify-between items-center bg-gray-50 p-2 rounded text-sm">
+                                <div class="flex items-center space-x-2">
+                                    <div class="text-gray-600">${formatDate ? formatDate(payment.date) : payment.date}</div>
+                                    <div class="text-gray-500">•</div>
+                                    <div class="text-gray-600">${getPaymentMethodText(payment.method)}</div>
+                                </div>
+                                <div class="font-medium text-green-600">+R$ ${(parseFloat(payment.amount) || 0).toFixed(2)}</div>
+                            </div>
+                        `).join('')}
+                    </div>
+                </div>
+                ` : ''}
+            </div>
+        `;
+    }).join('');
+}
+
+// 生成付款列表
+function generatePaymentsList(customer) {
+    const allPayments = [];
+    const lang = localStorage.getItem('selectedLanguage') || 'pt';
+    
+    // 从全局records数组中获取该客户的付款记录
+    if (typeof records !== 'undefined' && Array.isArray(records)) {
+        records.forEach(record => {
+            if (record.customerName && record.customerName.trim() === customer.name.trim()) {
+                if (record.payments && Array.isArray(record.payments)) {
+                    record.payments.forEach(payment => {
+                        allPayments.push({
+                            ...payment,
+                            orderNumber: record.orderNumber || record.nf || record.id || (lang === 'zh' ? '订单' : 'Pedido'),
+                            orderDescription: record.orderNumber || record.nf || record.id || (lang === 'zh' ? '订单' : 'Pedido')
+                        });
+                    });
+                }
+            }
+        });
+    }
+    
+    if (allPayments.length === 0) {
+        return `<div class="text-center py-4 text-gray-500">${lang === 'zh' ? '该客户暂无付款记录' : 'Este cliente não possui registros de pagamento'}</div>`;
+    }
+    
+    const sortedPayments = allPayments.sort((a, b) => new Date(b.date) - new Date(a.date));
+    
+    return sortedPayments.map(payment => {
+        return `
+            <div class="bg-white p-3 rounded border mb-2">
+                <div class="flex justify-between items-start">
+                    <div>
+                        <div class="font-medium">${getPaymentMethodText(payment.method)}</div>
+                        <div class="text-xs text-gray-400">${formatDate ? formatDate(payment.date) : payment.date}</div>
+                    </div>
+                    <div class="text-right">
+                        <div class="font-semibold text-green-600">R$ ${(parseFloat(payment.amount) || 0).toFixed(2)}</div>
+                        <div class="text-sm text-gray-500">${lang === 'zh' ? '订单号' : 'Nº do Pedido'}: ${payment.orderNumber}</div>
+                    </div>
+                </div>
+            </div>
+        `;
+    }).join('');
+}
+
+// 保留原有的函数以防其他地方调用
+function selectCustomerOld(customerId) {
     selectedCustomerId = customerId;
     const customer = customers.find(c => c.id === customerId);
     
@@ -135,6 +422,11 @@ function selectCustomer(customerId) {
 
 // 更新客户信息
 function updateCustomerInfo(customer) {
+    // 确保DOM元素已初始化
+    if (!customerInfo) {
+        return;
+    }
+    
     const lang = localStorage.getItem('selectedLanguage') || 'pt';
     customerInfo.innerHTML = `
         <div class="bg-white p-4 rounded-lg border">
@@ -230,7 +522,7 @@ function showCustomerSummary(customer) {
     // 加上收账记录中的所有付款（包括重复订单的实际付款）
     finalPaidAmount += accountingSummary.paidAmount;
     
-    const unpaidAmount = totalAmount - finalPaidAmount;
+    const unpaidAmount = Math.max(0, totalAmount - finalPaidAmount); // 确保不显示负数
     
     // 更新客户名称和信息
     const currentCustomerName = document.getElementById('current-customer-name');
@@ -274,9 +566,9 @@ function showCustomerSummary(customer) {
                 <div class="text-green-600 text-sm font-medium">${texts.paidAmount}</div>
                 <div class="text-2xl font-bold text-green-800">R$ ${finalPaidAmount.toLocaleString('pt-BR')}</div>
             </div>
-            <div class="bg-yellow-50 p-4 rounded-lg border border-yellow-200">
-                <div class="text-yellow-600 text-sm font-medium">${texts.totalUnpaidAmount}</div>
-                <div class="text-2xl font-bold text-yellow-800">R$ ${unpaidAmount.toLocaleString('pt-BR')}</div>
+            <div class="bg-red-50 p-4 rounded-lg border border-red-200">
+                <div class="text-red-600 text-sm font-medium">${texts.totalUnpaidAmount}</div>
+                <div class="text-2xl font-bold text-red-800">R$ ${unpaidAmount.toLocaleString('pt-BR')}</div>
             </div>
 
         `;
@@ -285,6 +577,11 @@ function showCustomerSummary(customer) {
 
 // 渲染客户订单
 function renderCustomerOrders(customer) {
+    // 确保DOM元素已初始化
+    if (!customerOrdersContainer) {
+        return;
+    }
+    
     const lang = localStorage.getItem('selectedLanguage') || 'pt';
     const texts = uiTexts[lang];
     
@@ -324,7 +621,7 @@ function renderCustomerOrders(customer) {
         
         // 合并两个系统的付款金额
         const paidAmount = customerSystemPaidAmount + accountingRecordPaidAmount;
-        const remainingAmount = order.amount - paidAmount;
+        const remainingAmount = Math.max(0, order.amount - paidAmount); // 确保不显示负数
         const paymentProgress = order.amount > 0 ? Math.min((paidAmount / order.amount) * 100, 100) : 0;
         
         const isOverdue = parseDDMMYYYYToDate(order.dueDate) < new Date() && remainingAmount > 0;
@@ -340,7 +637,7 @@ function renderCustomerOrders(customer) {
                 </div>
                 <div class="text-right">
                     <div class="text-lg font-bold text-gray-800">R$ ${order.amount.toLocaleString('pt-BR')}</div>
-                    <div class="text-sm text-yellow-500">${lang === 'pt' ? 'Pendente' : '未付'}: R$ ${(order.amount * (1 - paymentProgress / 100)).toLocaleString('pt-BR')}</div>
+                    <div class="text-sm text-red-500">${lang === 'pt' ? 'Pendente' : '未付'}: R$ ${remainingAmount.toLocaleString('pt-BR')}</div>
                 </div>
             </div>
             <div class="mb-3">
@@ -386,6 +683,11 @@ function renderCustomerOrders(customer) {
 
 // 渲染客户付款记录
 function renderCustomerPayments(customer) {
+    // 确保DOM元素已初始化
+    if (!customerPaymentsContainer) {
+        return;
+    }
+    
     const lang = localStorage.getItem('selectedLanguage') || 'pt';
     const texts = uiTexts[lang];
     
@@ -478,23 +780,43 @@ function renderCustomerPayments(customer) {
 
 // 显示/隐藏订单和付款部分
 function showOrdersSection() {
-    document.getElementById('orders-tab').classList.add('border-blue-500', 'text-blue-600');
-    document.getElementById('orders-tab').classList.remove('border-transparent', 'text-gray-500');
-    document.getElementById('payments-tab').classList.remove('border-blue-500', 'text-blue-600');
-    document.getElementById('payments-tab').classList.add('border-transparent', 'text-gray-500');
+    const ordersTab = document.getElementById('orders-tab');
+    const paymentsTab = document.getElementById('payments-tab');
+    const ordersSection = document.getElementById('orders-section');
+    const paymentsSection = document.getElementById('payments-section');
     
-    document.getElementById('orders-section').classList.remove('hidden');
-    document.getElementById('payments-section').classList.add('hidden');
+    // 确保DOM元素存在
+    if (!ordersTab || !paymentsTab || !ordersSection || !paymentsSection) {
+        return;
+    }
+    
+    ordersTab.classList.add('border-blue-500', 'text-blue-600');
+    ordersTab.classList.remove('border-transparent', 'text-gray-500');
+    paymentsTab.classList.remove('border-blue-500', 'text-blue-600');
+    paymentsTab.classList.add('border-transparent', 'text-gray-500');
+    
+    ordersSection.classList.remove('hidden');
+    paymentsSection.classList.add('hidden');
 }
 
 function showPaymentsSection() {
-    document.getElementById('payments-tab').classList.add('border-blue-500', 'text-blue-600');
-    document.getElementById('payments-tab').classList.remove('border-transparent', 'text-gray-500');
-    document.getElementById('orders-tab').classList.remove('border-blue-500', 'text-blue-600');
-    document.getElementById('orders-tab').classList.add('border-transparent', 'text-gray-500');
+    const paymentsTab = document.getElementById('payments-tab');
+    const ordersTab = document.getElementById('orders-tab');
+    const paymentsSection = document.getElementById('payments-section');
+    const ordersSection = document.getElementById('orders-section');
     
-    document.getElementById('payments-section').classList.remove('hidden');
-    document.getElementById('orders-section').classList.add('hidden');
+    // 确保DOM元素存在
+    if (!paymentsTab || !ordersTab || !paymentsSection || !ordersSection) {
+        return;
+    }
+    
+    paymentsTab.classList.add('border-blue-500', 'text-blue-600');
+    paymentsTab.classList.remove('border-transparent', 'text-gray-500');
+    ordersTab.classList.remove('border-blue-500', 'text-blue-600');
+    ordersTab.classList.add('border-transparent', 'text-gray-500');
+    
+    paymentsSection.classList.remove('hidden');
+    ordersSection.classList.add('hidden');
 }
 
 // 模态框管理
@@ -504,13 +826,7 @@ function showCustomerModal() {
         console.error('添加客户模态框元素未找到');
         return;
     }
-    addCustomerModal.classList.remove('opacity-0', 'pointer-events-none');
-    addCustomerModal.classList.add('opacity-100');
-    const transformElement = addCustomerModal.querySelector('.transform');
-    if (transformElement) {
-        transformElement.classList.remove('scale-95');
-        transformElement.classList.add('scale-100');
-    }
+    addCustomerModal.classList.remove('hidden');
 }
 
 function hideCustomerModal() {
@@ -520,15 +836,22 @@ function hideCustomerModal() {
         console.error('添加客户模态框元素未找到');
         return;
     }
-    addCustomerModal.classList.add('opacity-0', 'pointer-events-none');
-    addCustomerModal.classList.remove('opacity-100');
-    const transformElement = addCustomerModal.querySelector('.transform');
-    if (transformElement) {
-        transformElement.classList.add('scale-95');
-        transformElement.classList.remove('scale-100');
-    }
+    addCustomerModal.classList.add('hidden');
     if (addCustomerForm) {
         addCustomerForm.reset();
+    }
+    
+    // 重置编辑状态
+    if (window.isEditingCustomer) {
+        window.isEditingCustomer = false;
+        window.editingCustomerId = null;
+        
+        // 重置模态框标题
+        const lang = localStorage.getItem('selectedLanguage') || 'pt';
+        const addCustomerModalTitle = document.getElementById('addCustomerModalTitle');
+        if (addCustomerModalTitle) {
+            addCustomerModalTitle.textContent = lang === 'zh' ? '添加客户' : 'Adicionar Cliente';
+        }
     }
 }
 
@@ -625,7 +948,7 @@ function updatePaymentOrderOptions() {
     
     customer.orders.forEach(order => {
         const paidAmount = order.payments.reduce((sum, payment) => sum + payment.amount, 0);
-        const remainingAmount = order.amount - paidAmount;
+        const remainingAmount = Math.max(0, order.amount - paidAmount);
         
         if (remainingAmount > 0) {
             const option = document.createElement('option');
@@ -644,6 +967,15 @@ function generateId(prefix = '') {
 
 // 事件监听器
 document.addEventListener('DOMContentLoaded', function() {
+    // 初始化DOM元素引用
+    customerListContainer = document.getElementById('customer-list');
+    customerDetailsPanel = document.getElementById('customer-details');
+    customerInfo = document.getElementById('current-customer-info');
+    customerSummaryCards = document.querySelector('#customer-summary .grid');
+    customerOrdersContainer = document.getElementById('orders-list');
+    customerPaymentsContainer = document.getElementById('payments-list');
+    customerSearchInput = document.getElementById('customer-search');
+    
     // 初始化多语言支持
     updateCustomerUILanguage();
     
@@ -679,20 +1011,51 @@ document.addEventListener('DOMContentLoaded', function() {
     if (addCustomerForm) addCustomerForm.addEventListener('submit', function(e) {
         e.preventDefault();
         
-        const formData = new FormData(addCustomerForm);
-        const newCustomer = {
-            id: generateId('CUST'),
-            name: document.getElementById('customer-name').value,
-            contact: document.getElementById('customer-contact').value,
-            phone: document.getElementById('customer-phone').value,
-            remark: document.getElementById('customer-remark').value,
-            orders: []
-        };
+        const lang = localStorage.getItem('selectedLanguage') || 'pt';
+        const name = document.getElementById('customerNameInput').value;
+        const contact = document.getElementById('customerContactInput').value;
+        const phone = document.getElementById('customerPhoneInput').value;
+        const remark = document.getElementById('customerRemarkInput').value;
         
-        customers.push(newCustomer);
-        renderCustomers();
-        hideCustomerModal();
-        showNotification('客户添加成功', 'success');
+        if (window.isEditingCustomer && window.editingCustomerId) {
+            // 编辑模式
+            const customer = customers.find(c => c.id === window.editingCustomerId);
+            if (customer) {
+                customer.name = name;
+                customer.contact = contact;
+                customer.phone = phone;
+                customer.remark = remark;
+                
+                renderCustomers();
+                hideCustomerModal();
+                showNotification(lang === 'zh' ? '客户信息更新成功' : 'Informações do cliente atualizadas com sucesso', 'success');
+                
+                // 重置编辑状态
+                window.isEditingCustomer = false;
+                window.editingCustomerId = null;
+                
+                // 重置模态框标题
+                const addCustomerModalTitle = document.getElementById('addCustomerModalTitle');
+                if (addCustomerModalTitle) {
+                    addCustomerModalTitle.textContent = lang === 'zh' ? '添加客户' : 'Adicionar Cliente';
+                }
+            }
+        } else {
+            // 新增模式
+            const newCustomer = {
+                id: generateId('CUST'),
+                name: name,
+                contact: contact,
+                phone: phone,
+                remark: remark,
+                orders: []
+            };
+            
+            customers.push(newCustomer);
+            renderCustomers();
+            hideCustomerModal();
+            showNotification(lang === 'zh' ? '客户添加成功' : 'Cliente adicionado com sucesso', 'success');
+        }
     });
     
     const addOrderForm = document.getElementById('add-order-form');
@@ -809,7 +1172,7 @@ document.addEventListener('DOMContentLoaded', function() {
         
         const paymentAmount = parseFloat(document.getElementById('paymentAmountInput').value);
         const paidAmount = order.payments.reduce((sum, payment) => sum + payment.amount, 0);
-        const remainingAmount = order.amount - paidAmount;
+        const remainingAmount = Math.max(0, order.amount - paidAmount);
         
         if (paymentAmount > remainingAmount) {
             showNotification('付款金额不能超过剩余金额', 'error');
@@ -825,6 +1188,40 @@ document.addEventListener('DOMContentLoaded', function() {
         };
         
         order.payments.push(newPayment);
+        
+        // 同步更新收账记录中的付款信息
+        if (typeof records !== 'undefined' && Array.isArray(records)) {
+            const matchingRecord = records.find(record => 
+                record.customerName && record.customerName.trim() === customer.name.trim() &&
+                (record.orderNumber === order.orderNumber || record.nf === order.orderNumber)
+            );
+            
+            if (matchingRecord) {
+                // 确保payments数组存在
+                if (!matchingRecord.payments) {
+                    matchingRecord.payments = [];
+                }
+                
+                // 添加付款记录到收账记录
+                const accountingPayment = {
+                    id: newPayment.id,
+                    date: newPayment.date,
+                    amount: newPayment.amount,
+                    method: newPayment.method,
+                    remark: newPayment.remark
+                };
+                matchingRecord.payments.push(accountingPayment);
+                
+                // 重新计算paidAmount
+                matchingRecord.paidAmount = matchingRecord.payments.reduce((sum, p) => 
+                    sum + (parseFloat(p.amount) || 0), 0
+                );
+                
+                // 保存更新
+                localStorage.setItem('accountRecords', JSON.stringify(records));
+                console.log(`✅ 已同步更新收账记录 ${matchingRecord.orderNumber || matchingRecord.id} 的付款信息`);
+            }
+        }
         
         // 更新显示
         selectCustomer(selectedCustomerId);
@@ -845,11 +1242,9 @@ function getPaymentMethodText(method) {
     const texts = uiTexts[lang];
     
     const methods = {
+        'pix': texts.paymentMethodPix,
         'transfer': texts.paymentMethodTransfer,
         'cash': texts.paymentMethodCash,
-        'alipay': texts.paymentMethodAlipay,
-        'wechat': texts.paymentMethodWechat,
-        'pix': texts.paymentMethodPix,
         'other': texts.paymentMethodOther
     };
     return methods[method] || method;
@@ -1050,11 +1445,9 @@ function updatePaymentModalLanguage(texts) {
     const paymentMethodSelect = document.getElementById('paymentMethodInput');
     if (paymentMethodSelect) {
         paymentMethodSelect.innerHTML = `
+            <option value="pix">${texts.paymentMethodPix}</option>
             <option value="transfer">${texts.paymentMethodTransfer}</option>
             <option value="cash">${texts.paymentMethodCash}</option>
-            <option value="alipay">${texts.paymentMethodAlipay}</option>
-            <option value="wechat">${texts.paymentMethodWechat}</option>
-            <option value="pix">${texts.paymentMethodPix}</option>
             <option value="other">${texts.paymentMethodOther}</option>
         `;
     }
@@ -1259,7 +1652,7 @@ function getCustomerAccountingSummary(customerName) {
         }
         
         paidAmount += recordPaidAmount;
-        const remainingAmount = amount - recordPaidAmount;
+        const remainingAmount = Math.max(0, amount - recordPaidAmount); // 确保不产生负数
         
         if (remainingAmount > 0) {
             pendingAmount += remainingAmount;
@@ -1285,6 +1678,16 @@ function getCustomerAccountingSummary(customerName) {
 
 // 在客户详情中显示收账记录信息
 function displayAccountingRecords(customerName) {
+    // 先移除已存在的收账记录标签页和内容区域
+    const existingTab = document.getElementById('accounting-tab');
+    const existingSection = document.getElementById('accounting-section');
+    if (existingTab) {
+        existingTab.remove();
+    }
+    if (existingSection) {
+        existingSection.remove();
+    }
+    
     if (typeof records === 'undefined' || !Array.isArray(records)) {
         return;
     }
@@ -1293,13 +1696,14 @@ function displayAccountingRecords(customerName) {
         record.customerName && record.customerName.trim() === customerName.trim()
     );
     
+    // 如果没有收账记录，隐藏相关div元素
     if (customerRecords.length === 0) {
-        return;
+        return; // 不创建标签页和内容区域
     }
     
     // 在客户详情面板中添加收账记录标签页
     const tabsContainer = document.querySelector('.customer-tabs');
-    if (tabsContainer && !document.getElementById('accounting-tab')) {
+    if (tabsContainer) {
         const accountingTab = document.createElement('button');
         accountingTab.id = 'accounting-tab';
         accountingTab.className = 'px-4 py-2 text-sm font-medium text-gray-500 hover:text-gray-700 border-b-2 border-transparent hover:border-gray-300';
@@ -1312,7 +1716,7 @@ function displayAccountingRecords(customerName) {
     
     // 创建收账记录内容区域
     const detailsContent = document.querySelector('.customer-details-content');
-    if (detailsContent && !document.getElementById('accounting-section')) {
+    if (detailsContent) {
         const accountingSection = document.createElement('div');
         accountingSection.id = 'accounting-section';
         accountingSection.className = 'hidden';
@@ -1350,18 +1754,31 @@ function generateAccountingRecordsHTML(records) {
                                 <td class="px-4 py-2 text-sm text-gray-900">${record.orderDate || '-'}</td>
                                 <td class="px-4 py-2 text-sm text-gray-900">${record.dueDate || '-'}</td>
                                 <td class="px-4 py-2">
-                                    <span class="inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-                                        record.status === 'paid' ? 'bg-green-100 text-green-800' :
-                                        record.status === 'overdue' ? 'bg-red-100 text-red-800' :
-                                        'bg-yellow-100 text-yellow-800'
-                                    }">
-                                        ${lang === 'pt' ? 
-                                            (record.status === 'paid' ? 'Pago' : 
-                                             record.status === 'overdue' ? 'Vencido' : 'Pendente') :
-                                            (record.status === 'paid' ? '已付款' : 
-                                             record.status === 'overdue' ? '逾期' : '待付款')
+                                    ${(() => {
+                                        // 检查是否有付款记录
+                                        const hasPayments = record.payments && Array.isArray(record.payments) && record.payments.length > 0;
+                                        const paidAmount = parseFloat(record.paidAmount || 0);
+                                        
+                                        // 如果没有付款记录且状态不是已付款，则隐藏状态标签
+                                        if (!hasPayments && paidAmount === 0 && record.status !== 'paid') {
+                                            return '<span class="text-xs text-gray-400">-</span>';
                                         }
-                                    </span>
+                                        
+                                        // 正常显示状态标签
+                                        return `<span class="inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
+                                            record.status === 'paid' ? 'bg-green-100 text-green-800' :
+                                            record.status === 'overdue' ? 'bg-red-100 text-red-800' :
+                                            'bg-yellow-100 text-yellow-800'
+                                        }">
+                                            ${lang === 'pt' ? 
+                                                (record.status === 'paid' ? 'Pago' : 
+                                                 record.status === 'overdue' ? 'Vencido' : 'Pendente') :
+                                                (record.status === 'paid' ? '已付款' : 
+                                                 record.status === 'overdue' ? '逾期' : '待付款')
+                                            }
+                                        </span>`;
+                                    })()
+                                    }
                                 </td>
                             </tr>
                         `).join('')}
