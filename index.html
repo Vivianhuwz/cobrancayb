@@ -51,80 +51,205 @@
             z-index: 10;
             opacity: 0.9;
         }
+        
+        /* 移动端导航样式 */
+        .mobile-nav-item {
+            transition: all 0.2s ease;
+        }
+        
+        .mobile-nav-item:hover {
+            background-color: #f3f4f6;
+            transform: translateX(4px);
+        }
+        
+        /* 汉堡菜单动画 */
+        .hamburger-line {
+            transition: all 0.3s ease;
+            transform-origin: center;
+        }
+        
+        #mobileMenuBtn.active .hamburger-line:nth-child(1) {
+            transform: rotate(45deg) translate(2px, 2px);
+        }
+        
+        #mobileMenuBtn.active .hamburger-line:nth-child(2) {
+            opacity: 0;
+        }
+        
+        #mobileMenuBtn.active .hamburger-line:nth-child(3) {
+            transform: rotate(-45deg) translate(2px, -2px);
+        }
+        
+        /* 移动端菜单滑入动画 */
+        #mobileNav {
+            transition: all 0.3s ease;
+            max-height: 0;
+            overflow: hidden;
+        }
+        
+        #mobileNav.show {
+            max-height: 500px;
+        }
+        
+        /* 响应式调整 */
+        @media (max-width: 640px) {
+            .container {
+                padding-left: 1rem;
+                padding-right: 1rem;
+            }
+            
+            body {
+                padding-top: 0;
+            }
+        }
     </style>
 </head>
-<body class="bg-gray-100 pt-36">
+<body class="bg-gray-100">
     <!-- 导航栏 -->
-    <!-- 在导航栏中添加语言选择 -->
-    <nav class="bg-white text-gray-800 p-4 shadow-lg border-b fixed top-0 left-0 right-0 z-50"> 
-        <div class="container mx-w-2xl mx-auto"> 
-            <div class="button-group">
-                <!-- 公司LOGO和小程序标题 -->
-                <div class="flex flex-col items-center text-blue-600 px-4 py-2">
-                    <img src="YOUBAI.png" alt="YOUBAI Logo" class="h-12 w-auto mb-1">
+    <header class="bg-white shadow-sm sticky top-0 z-50">
+        <!-- Logo和标题区域 -->
+        <div class="px-4 sm:px-6 lg:px-8">
+            <div class="flex items-center h-16 px-4">
+                <!-- 移动端：左侧区域 -->
+                <div class="md:hidden flex items-center space-x-2">
+                    <!-- 汉堡菜单 -->
+                    <button id="mobileMenuBtn" class="p-2 rounded-lg hover:bg-gray-100 transition-colors" onclick="toggleMobileMenu()">
+                        <div class="w-6 h-6 flex flex-col justify-center items-center">
+                            <div class="hamburger-line w-5 h-0.5 bg-gray-500 mb-1"></div>
+                            <div class="hamburger-line w-5 h-0.5 bg-gray-500 mb-1"></div>
+                            <div class="hamburger-line w-5 h-0.5 bg-gray-500"></div>
+                        </div>
+                    </button>
+                    
+                    <!-- YOUBAI标识 -->
                     <div class="flex items-center">
-                        <span class="text-sm font-semibold text-gray-800" id="appTitle">Cobrança</span>
+                        <img src="YOUBAI.png" alt="YOUBAI Logo" class="h-8 w-auto mr-2">
+                        <span class="text-lg font-semibold text-gray-500" id="appTitle">Cobrança</span>
                     </div>
                 </div>
-                <button onclick="showAddModal()" class="text-blue-500 hover:text-blue-600 px-4 py-2 transition-colors">
-                    <i class="fas fa-plus mr-2"></i><span id="btnAdd">Registro de Cobrança</span>
-                </button>
-                <button onclick="openChatModal()" class="text-pink-500 hover:text-pink-600 px-4 py-2 transition-colors">
-                    <i class="fas fa-comments mr-2"></i><span id="btnChat">Chat Inteligente</span>
-                </button>
-                <button onclick="showImportHelp()" class="text-green-500 hover:text-green-600 px-4 py-2 transition-colors">
-                    <i class="fas fa-upload mr-2"></i><span id="btnImport">Importar</span>
-                </button>
-                <button onclick="generateReport()" class="text-purple-500 hover:text-purple-600 px-4 py-2 transition-colors">
-                    <i class="fas fa-chart-bar mr-2"></i><span id="btnReport">Gerar Relatório</span>
-                </button>
                 
-                <!-- 云同步功能 -->
-                <div class="flex items-center space-x-2 border-l border-blue-500 pl-4">
-                    <!-- 同步状态显示 -->
+                <!-- 桌面版Logo和标题 -->
+                <div class="hidden md:flex items-center">
+                    <img src="YOUBAI.png" alt="YOUBAI Logo" class="h-10 w-auto mr-3">
+                    <div>
+                        <h1 class="text-lg font-semibold text-gray-500">YOUBAI</h1>
+                        <p class="text-xs text-gray-300" id="appSubtitle">Sistema de Cobrança</p>
+                    </div>
+                </div>
+                
+                <!-- 右侧区域：同步状态和用户菜单 -->
+                <div class="flex-1 flex justify-end items-center space-x-4">
+                    <!-- 云同步功能 -->
                     <div class="flex items-center space-x-2">
-                        <span id="syncStatus" class="text-sm text-gray-600">Não Sincronizado</span>
-                        <div id="syncIndicator" class="w-2 h-2 bg-gray-400 rounded-full"></div>
+                        <!-- 同步状态显示 -->
+                        <div class="hidden sm:flex items-center space-x-2">
+                            <span id="syncStatus" class="text-sm text-gray-600">Não Sincronizado</span>
+                            <div id="syncIndicator" class="w-2 h-2 bg-gray-400 rounded-full"></div>
+                        </div>
+                        
+                        <!-- 从云端加载按钮 -->
+                        <button onclick="loadFromCloud()" id="loadBtn" class="text-blue-500 hover:text-blue-600 p-2 rounded-lg transition-colors">
+                            <i class="fa-solid fa-cloud"></i>
+                        </button>
                     </div>
                     
-                    <!-- 从云端加载按钮 -->
-                    <button onclick="loadFromCloud()" id="loadBtn" class="text-blue-500 hover:text-blue-600 px-3 py-2 rounded-lg transition-colors text-sm">
-                        <i class="fa-solid fa-cloud"></i>
-                    </button>
-                </div>
-                
-                <!-- 语言选择 -->
-                <div class="flex items-center space-x-2">
-                    <i class="fas fa-globe text-gray-600"></i>
-                    <select id="languageSelect" onchange="changeLanguage()" class="bg-gray-100 text-gray-800 rounded px-2 py-1 text-sm">
-                        <option value="zh">中文</option>
-                        <option value="pt">Português</option>
-                    </select>
-                </div>
-                
-                <!-- 用户信息和登出 -->
-                <div class="relative border-l border-gray-300 pl-4">
-                    <button onclick="toggleUserMenu()" class="flex items-center space-x-2 px-1 py-2 h-20 rounded-lg hover:bg-white transition-colors">
-                        <i class="fas fa-user text-gray-600"></i>
-                        <span id="currentUser" class="text-sm text-gray-700"></span>
-                        <i class="fas fa-chevron-down text-gray-400 text-xs"></i>
-                    </button>
+                    <!-- 语言选择 -->
+                    <div class="hidden sm:flex items-center space-x-2">
+                        <i class="fas fa-globe text-gray-600"></i>
+                        <select id="languageSelect" onchange="changeLanguage()" class="bg-gray-100 text-gray-800 rounded px-2 py-1 text-sm">
+                            <option value="zh">中文</option>
+                            <option value="pt">Português</option>
+                        </select>
+                    </div>
                     
-                    <!-- 用户下拉菜单 -->
-                    <div id="userMenu" class="hidden absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg border border-gray-200 z-50">
-                        <div class="py-2">
-                            <div class="px-4 py-2 text-sm text-gray-500 border-b border-gray-100">
-                                <span id="menuCurrentUser">用户</span>
+                    <!-- 用户信息和登出 -->
+                    <div class="relative">
+                        <button onclick="toggleUserMenu()" class="flex items-center space-x-2 px-3 py-2 rounded-lg hover:bg-gray-100 transition-colors">
+                            <i class="fas fa-user text-gray-600"></i>
+                            <span id="currentUser" class="hidden sm:inline text-sm text-gray-700"></span>
+                            <i class="fas fa-chevron-down text-gray-400 text-xs"></i>
+                        </button>
+                        
+                        <!-- 用户下拉菜单 -->
+                        <div id="userMenu" class="hidden absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg border border-gray-200 z-50">
+                            <div class="py-2">
+                                <div class="px-4 py-2 text-sm text-gray-500 border-b border-gray-100">
+                                    <span id="menuCurrentUser">用户</span>
+                                </div>
+                                <!-- 移动端语言选择 -->
+                                <div class="sm:hidden px-4 py-2 border-b border-gray-100">
+                                    <div class="flex items-center space-x-2">
+                                        <i class="fas fa-globe text-gray-600"></i>
+                                        <select id="languageSelectMobile" onchange="changeLanguage()" class="bg-gray-100 text-gray-800 rounded px-2 py-1 text-sm">
+                                            <option value="zh">中文</option>
+                                            <option value="pt">Português</option>
+                                        </select>
+                                    </div>
+                                </div>
+                                <button onclick="logout()" class="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 transition-colors">
+                                    <i class="fas fa-sign-out-alt mr-2"></i><span id="menuLogoutText">Sair</span>
+                                </button>
                             </div>
-                            <button onclick="logout()" class="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 transition-colors">
-                                <i class="fas fa-sign-out-alt mr-2"></i><span id="menuLogoutText">Sair</span>
-                            </button>
                         </div>
                     </div>
                 </div>
             </div>
         </div>
-    </nav>
+        
+        <!-- 功能按钮导航 - 桌面版 -->
+        <nav class="hidden md:block border-t border-gray-100">
+            <div class="px-4 sm:px-6 lg:px-8">
+                <div class="flex space-x-1 py-3 overflow-x-auto">
+                    <button onclick="showAddModal()" class="flex items-center px-4 py-2 text-sm font-medium text-blue-600 hover:bg-blue-50 rounded-lg whitespace-nowrap transition-colors">
+                        <i class="fas fa-plus mr-2"></i><span id="btnAdd">Registro de Cobrança</span>
+                    </button>
+                    <button onclick="openChatModal()" class="flex items-center px-4 py-2 text-sm font-medium text-pink-600 hover:bg-pink-50 rounded-lg whitespace-nowrap transition-colors">
+                        <i class="fas fa-comments mr-2"></i><span id="btnChat">Chat Inteligente</span>
+                    </button>
+                    <button onclick="showImportHelp()" class="flex items-center px-4 py-2 text-sm font-medium text-green-600 hover:bg-green-50 rounded-lg whitespace-nowrap transition-colors">
+                        <i class="fas fa-upload mr-2"></i><span id="btnImport">Importar</span>
+                    </button>
+                    <button onclick="generateReport()" class="flex items-center px-4 py-2 text-sm font-medium text-purple-600 hover:bg-purple-50 rounded-lg whitespace-nowrap transition-colors">
+                        <i class="fas fa-chart-bar mr-2"></i><span id="btnReport">Gerar Relatório</span>
+                    </button>
+                </div>
+            </div>
+        </nav>
+        
+        <!-- 移动端导航菜单 -->
+        <nav id="mobileNav" class="md:hidden hidden border-t border-gray-100 bg-white">
+            <div class="px-4 py-3 space-y-2">
+                <button onclick="showAddModal(); closeMobileMenu()" class="mobile-nav-item flex items-center w-full px-4 py-3 text-sm font-medium text-gray-600 rounded-lg">
+                    <i class="fas fa-plus mr-3 text-blue-500"></i>
+                    <span id="btnAddMobile">Registro de Cobrança</span>
+                </button>
+                <button onclick="openChatModal(); closeMobileMenu()" class="mobile-nav-item flex items-center w-full px-4 py-3 text-sm font-medium text-gray-600 rounded-lg">
+                    <i class="fas fa-comments mr-3 text-pink-500"></i>
+                    <span id="btnChatMobile">Chat Inteligente</span>
+                </button>
+                <button onclick="showImportHelp(); closeMobileMenu()" class="mobile-nav-item flex items-center w-full px-4 py-3 text-sm font-medium text-gray-600 rounded-lg">
+                    <i class="fas fa-upload mr-3 text-green-500"></i>
+                    <span id="btnImportMobile">Importar</span>
+                </button>
+                <button onclick="generateReport(); closeMobileMenu()" class="mobile-nav-item flex items-center w-full px-4 py-3 text-sm font-medium text-gray-600 rounded-lg">
+                    <i class="fas fa-chart-bar mr-3 text-purple-500"></i>
+                    <span id="btnReportMobile">Gerar Relatório</span>
+                </button>
+                <!-- 移动端同步状态 -->
+                <div class="border-t border-gray-100 pt-3 mt-3">
+                    <div class="flex items-center justify-between px-4 py-2">
+                        <div class="flex items-center space-x-2">
+                            <span id="syncStatusMobile" class="text-sm text-gray-600">Não Sincronizado</span>
+                            <div id="syncIndicatorMobile" class="w-2 h-2 bg-gray-400 rounded-full"></div>
+                        </div>
+                        <button onclick="loadFromCloud()" class="text-blue-500 hover:text-blue-600 p-1 rounded transition-colors">
+                            <i class="fa-solid fa-cloud"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </nav>
+    </header>
 
 
 
@@ -837,6 +962,56 @@
             window.location.href = 'login.html';
         }
     }
+    
+    // 移动端导航菜单功能
+    function toggleMobileMenu() {
+        const mobileNav = document.getElementById('mobileNav');
+        const mobileMenuBtn = document.getElementById('mobileMenuBtn');
+        
+        if (mobileNav.classList.contains('hidden')) {
+            // 显示菜单
+            mobileNav.classList.remove('hidden');
+            mobileNav.classList.add('show');
+            mobileMenuBtn.classList.add('active');
+        } else {
+            // 隐藏菜单
+            mobileNav.classList.remove('show');
+            mobileMenuBtn.classList.remove('active');
+            
+            // 等待动画完成后隐藏元素
+            setTimeout(() => {
+                mobileNav.classList.add('hidden');
+            }, 300);
+        }
+    }
+    
+    function closeMobileMenu() {
+        const mobileNav = document.getElementById('mobileNav');
+        const mobileMenuBtn = document.getElementById('mobileMenuBtn');
+        
+        if (mobileNav && !mobileNav.classList.contains('hidden')) {
+            mobileNav.classList.remove('show');
+            mobileMenuBtn.classList.remove('active');
+            
+            // 等待动画完成后隐藏元素
+            setTimeout(() => {
+                mobileNav.classList.add('hidden');
+            }, 300);
+        }
+    }
+    
+    // 处理窗口大小变化
+    function handleResize() {
+        const isMobile = window.innerWidth < 768;
+        
+        // 在桌面端自动关闭移动端导航菜单
+        if (!isMobile) {
+            closeMobileMenu();
+        }
+    }
+    
+    // 监听窗口大小变化
+    window.addEventListener('resize', handleResize);
     
     document.addEventListener('DOMContentLoaded', function() {
         // 首先检查登录状态
