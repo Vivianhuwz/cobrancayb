@@ -308,13 +308,16 @@ table {
     /* 操作按钮 */
     .action-buttons {
         display: flex;
-        flex-direction: column;
+        flex-direction: row;
+        flex-wrap: wrap;
         gap: 0.25rem;
+        max-width: 120px;
     }
     
     .action-buttons button {
         padding: 0.25rem 0.5rem;
         font-size: 0.75rem;
+        flex: 0 0 calc(50% - 0.125rem);
     }
     
     /* 模态框 */
