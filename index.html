@@ -102,16 +102,56 @@
                 padding-top: 0;
             }
         }
+        
+        /* 排序样式 */
+        .sortable-header {
+            cursor: pointer;
+            user-select: none;
+            position: relative;
+            transition: background-color 0.2s ease;
+        }
+        
+        .sortable-header:hover {
+            background-color: #f9fafb;
+        }
+        
+        .sort-indicator {
+            display: inline-block;
+            margin-left: 4px;
+            font-size: 10px;
+            color: #9ca3af;
+        }
+        
+        .sort-indicator::before {
+            content: '↕';
+        }
+        
+        .sortable-header.sort-asc .sort-indicator::before {
+            content: '↑';
+            color: #3b82f6;
+        }
+        
+        .sortable-header.sort-desc .sort-indicator::before {
+            content: '↓';
+            color: #3b82f6;
+        }
+        
+        .sortable-header.sort-asc,
+        .sortable-header.sort-desc {
+            background-color: #eff6ff;
+        }
     </style>
 </head>
 <body class="bg-gray-100">
+
+    
     <!-- 导航栏 -->
-    <header class="bg-white shadow-sm sticky top-0 z-50">
+    <header class="bg-white shadow-sm sticky top-0 z-40">
         <!-- Logo和标题区域 -->
         <div class="px-4 sm:px-6 lg:px-8">
             <div class="flex items-center h-16 px-4">
                 <!-- 移动端：左侧区域 -->
-                <div class="md:hidden flex items-center space-x-2">
+                <div class="md:hidden flex items-center space-x-2 flex-1">
                     <!-- 汉堡菜单 -->
                     <button id="mobileMenuBtn" class="p-2 rounded-lg hover:bg-gray-100 transition-colors" onclick="toggleMobileMenu()">
                         <div class="w-6 h-6 flex flex-col justify-center items-center">
@@ -122,18 +162,82 @@
                     </button>
                     
                     <!-- YOUBAI标识 -->
-                    <div class="flex items-center">
+                    <div class="flex items-center flex-1">
                         <img src="YOUBAI.png" alt="YOUBAI Logo" class="h-8 w-auto mr-2">
                         <span class="text-lg font-semibold text-gray-500" id="appTitle">Cobrança</span>
+                    </div>
+                    
+                    <!-- 移动端搜索按钮 -->
+                    <button id="mobileSearchBtn" class="p-2 rounded-lg hover:bg-gray-100 transition-colors" onclick="toggleMobileSearch()">
+                        <i class="fas fa-search text-gray-500"></i>
+                    </button>
+                </div>
+                
+                <!-- 移动端搜索栏 -->
+                <div id="mobileSearchBar" class="md:hidden hidden absolute top-full left-0 right-0 bg-white border-b border-gray-200 p-4">
+                    <div class="relative customer-search-container">
+                        <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                            <i class="fas fa-search text-gray-400"></i>
+                        </div>
+                        <input type="text" 
+                               id="mobileCustomerSearchInput" 
+                               placeholder="Buscar Cliente" 
+                               class="block w-full pl-10 pr-10 py-2 border-0 rounded-lg leading-5 bg-white placeholder-gray-500 focus:outline-none focus:placeholder-gray-400 focus:ring-0 text-sm"
+                               oninput="searchCustomers(this.value)">
+                        
+                        <!-- 清除按钮 -->
+                        <button onclick="clearCustomerSearch()" 
+                                class="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gray-600">
+                            <i class="fas fa-times"></i>
+                        </button>
                     </div>
                 </div>
                 
                 <!-- 桌面版Logo和标题 -->
-                <div class="hidden md:flex items-center">
+                <div class="hidden md:flex items-center flex-1">
                     <img src="YOUBAI.png" alt="YOUBAI Logo" class="h-10 w-auto mr-3">
-                    <div>
+                    <div class="mr-6">
                         <h1 class="text-lg font-semibold text-gray-500">YOUBAI</h1>
                         <p class="text-xs text-gray-300" id="appSubtitle">Sistema de Cobrança</p>
+                    </div>
+                
+                    <!-- 客户搜索框和状态筛选 - 桌面版 -->
+                    <div class="flex-1 flex items-center space-x-3 max-w-lg mx-4" id="customerSearchContainer">
+                        <!-- 客户搜索框 -->
+                        <div class="relative customer-search-container flex-1">
+                            <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                <i class="fas fa-search text-gray-400"></i>
+                            </div>
+                            <input type="text" 
+                                   id="customerSearchInput" 
+                                   placeholder="Buscar Cliente" 
+                                   class="block w-full pl-10 pr-10 py-2 border-0 rounded-lg leading-5 bg-white placeholder-gray-500 focus:outline-none focus:placeholder-gray-400 focus:ring-0 text-sm"
+                                   oninput="searchCustomers(this.value)">
+                            
+                            <!-- 清除按钮 -->
+                            <button id="clearSearchBtn" 
+                                    onclick="clearCustomerSearch()" 
+                                    class="hidden absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gray-600">
+                                <i class="fas fa-times"></i>
+                            </button>
+                            
+                            <!-- 搜索结果下拉框 -->
+                            <div id="customerSearchResults" class="customer-search-results" style="display: none;">
+                                <!-- 搜索结果将在这里显示 -->
+                            </div>
+                        </div>
+                        
+                        <!-- 状态筛选 -->
+                        <div class="relative">
+                            <select id="statusFilterHeader" class="px-3 py-2 border-0 rounded-lg bg-white text-sm focus:outline-none focus:ring-0 min-w-[120px]"
+                                    onchange="filterRecords()">
+                                <option value="" id="allStatusOptionHeader">Todos os Status</option>
+                                <option value="pending" id="statusPendingOptionHeader">Pendente</option>
+                                <option value="paid" id="statusPaidOptionHeader">Pago</option>
+                                <option value="overdue" id="statusOverdueOptionHeader">Em Atraso</option>
+                                <option value="archived" id="statusArchivedOptionHeader">Arquivado</option>
+                            </select>
+                        </div>
                     </div>
                 </div>
                 
@@ -256,52 +360,74 @@
     <!-- 主要内容区域 -->
     <div class="container mx-auto p-6">
         <!-- 统计卡片 -->
-        <div class="stats-grid">
-            <div class="bg-white rounded-lg shadow-md p-6 stat-card">
-                <div class="flex items-center">
-                    <div class="p-3 rounded-full bg-blue-100 text-blue-600">
-                        <i class="fas fa-coins text-2xl"></i>
+        <div class="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-6 mb-6 sm:mb-8 mt-8">
+            <!-- Valor Total -->
+            <div class="bg-white rounded-xl shadow-sm p-2 sm:p-4 stat-card">
+                <div class="flex items-center justify-between">
+                    <div class="flex-1 min-w-0">
+                        <p class="text-xs sm:text-sm font-medium text-gray-400 mb-1 truncate" id="totalAmountLabel">Valor Total</p>
+                        <p class="text-lg sm:text-2xl font-bold text-gray-500" id="totalAmount">R$ 0</p>
+                        <p class="text-xs text-blue-500 mt-1 hidden sm:block">
+                            <i class="fas fa-coins"></i>
+                            <span>Total de cobranças</span>
+                        </p>
                     </div>
-                    <div class="ml-4">
-                        <h3 class="text-gray-500 text-sm" id="totalAmountLabel">Valor Total</h3>
-                        <p class="text-2xl font-bold text-gray-800" id="totalAmount">R$ 0</p>
-                    </div>
-                </div>
-            </div>
-            <div class="bg-white rounded-lg shadow-md p-6 stat-card">
-                <div class="flex items-center">
-                    <div class="p-3 rounded-full bg-green-100 text-green-600">
-                        <i class="fas fa-check-circle text-2xl"></i>
-                    </div>
-                    <div class="ml-4">
-                        <h3 class="text-gray-500 text-sm" id="paidAmountLabel">Valor Recebido</h3>
-                        <p class="text-2xl font-bold text-gray-800" id="paidAmount">R$ 0</p>
-                    </div>
-                </div>
-            </div>
-            <div class="bg-white rounded-lg shadow-md p-6 stat-card">
-                <div class="flex items-center">
-                    <div class="p-3 rounded-full bg-yellow-100 text-yellow-600">
-                        <i class="fas fa-clock text-2xl"></i>
-                    </div>
-                    <div class="ml-4">
-                        <h3 class="text-gray-500 text-sm" id="pendingAmountLabel">Valor Pendente</h3>
-                        <p class="text-2xl font-bold text-gray-800" id="pendingAmount">R$ 0</p>
-                    </div>
-                </div>
-            </div>
-            <div class="bg-white rounded-lg shadow-md p-6 stat-card">
-                <div class="flex items-center">
-                    <div class="p-3 rounded-full bg-red-100 text-red-600">
-                        <i class="fas fa-exclamation-triangle text-2xl"></i>
-                    </div>
-                    <div class="ml-4">
-                        <h3 class="text-gray-500 text-sm" id="overdueCountLabel">Em Atraso</h3>
-                        <p class="text-2xl font-bold text-gray-800" id="overdueCount">0</p>
+                    <div class="w-8 h-8 sm:w-12 sm:h-12 bg-blue-100 rounded-full flex items-center justify-center ml-2">
+                        <i class="fas fa-coins text-sm sm:text-xl text-blue-600"></i>
                     </div>
                 </div>
             </div>
 
+            <!-- Valor Recebido -->
+            <div class="bg-white rounded-xl shadow-sm p-2 sm:p-4 stat-card">
+                <div class="flex items-center justify-between">
+                    <div class="flex-1 min-w-0">
+                        <p class="text-xs sm:text-sm font-medium text-gray-400 mb-1 truncate" id="paidAmountLabel">Valor Recebido</p>
+                        <p class="text-lg sm:text-2xl font-bold text-gray-500" id="paidAmount">R$ 0</p>
+                        <p class="text-xs text-green-500 mt-1 hidden sm:block">
+                            <i class="fas fa-check-circle"></i>
+                            <span>Pagamentos confirmados</span>
+                        </p>
+                    </div>
+                    <div class="w-8 h-8 sm:w-12 sm:h-12 bg-green-100 rounded-full flex items-center justify-center ml-2">
+                        <i class="fas fa-check-circle text-sm sm:text-xl text-green-600"></i>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Valor Pendente -->
+            <div class="bg-white rounded-xl shadow-sm p-2 sm:p-4 stat-card">
+                <div class="flex items-center justify-between">
+                    <div class="flex-1 min-w-0">
+                        <p class="text-xs sm:text-sm font-medium text-gray-400 mb-1 truncate" id="pendingAmountLabel">Valor Pendente</p>
+                        <p class="text-lg sm:text-2xl font-bold text-gray-500" id="pendingAmount">R$ 0</p>
+                        <p class="text-xs text-yellow-500 mt-1 hidden sm:block">
+                            <i class="fas fa-clock"></i>
+                            <span>Aguardando pagamento</span>
+                        </p>
+                    </div>
+                    <div class="w-8 h-8 sm:w-12 sm:h-12 bg-yellow-100 rounded-full flex items-center justify-center ml-2">
+                        <i class="fas fa-clock text-sm sm:text-xl text-yellow-600"></i>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Em Atraso -->
+            <div class="bg-white rounded-xl shadow-sm p-2 sm:p-4 stat-card">
+                <div class="flex items-center justify-between">
+                    <div class="flex-1 min-w-0">
+                        <p class="text-xs sm:text-sm font-medium text-gray-400 mb-1 truncate" id="overdueCountLabel">Em Atraso</p>
+                        <p class="text-lg sm:text-2xl font-bold text-gray-500" id="overdueCount">0</p>
+                        <p class="text-xs text-red-500 mt-1 hidden sm:block">
+                            <i class="fas fa-exclamation-triangle"></i>
+                            <span>Cobranças vencidas</span>
+                        </p>
+                    </div>
+                    <div class="w-8 h-8 sm:w-12 sm:h-12 bg-red-100 rounded-full flex items-center justify-center ml-2">
+                        <i class="fas fa-exclamation-triangle text-sm sm:text-xl text-red-600"></i>
+                    </div>
+                </div>
+            </div>
         </div>
 
         <!-- 主要内容布局：左侧客户管理，右侧收账记录 -->
@@ -377,40 +503,7 @@
             
             <!-- 右侧：收账记录 -->
             <div id="recordsPanel" class="lg:col-span-4 transition-all duration-300 ease-in-out">
-                <!-- 筛选和搜索 -->
-                <div class="bg-white rounded-lg shadow-md p-6 mb-6">
-                    <div class="filter-section">
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-2" id="customerSearchLabel">Busca de Cliente</label>
-                            <input type="text" id="customerSearch" placeholder="Digite o nome do cliente" 
-                                   class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                   onkeyup="filterRecords()">
-                        </div>
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-2" id="statusFilterLabel">Filtro de Status</label>
-                            <select id="statusFilter" class="w-full px-3 py-2 border-0 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                    onchange="filterRecords()">
-                                <option value="" id="allStatusOption">Todos os Status</option>
-                                <option value="pending" id="statusPendingOption">Pendente</option>
-                                <option value="paid" id="statusPaidOption">Pago</option>
-                                <option value="overdue" id="statusOverdueOption">Em Atraso</option>
-                                <option value="archived" id="statusArchivedOption">Arquivado</option>
-                            </select>
-                        </div>
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-2" id="dateRangeLabel">Período</label>
-                            <input type="date" id="dateFrom" 
-                                   class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                   onchange="filterRecords()">
-                        </div>
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-2" id="dateToLabel">Até</label>
-                            <input type="date" id="dateTo" 
-                                   class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                   onchange="filterRecords()">
-                        </div>
-                    </div>
-                </div>
+
 
                 <!-- 收账记录表格 -->
                 <div class="bg-white rounded-lg shadow-md">
@@ -424,15 +517,15 @@
                             <thead class="bg-gray-50 sticky top-0">
                                 <tr>
                                     <th class="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider w-16"></th>
-                                    <th id="thNF" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider hide-mobile">NF</th>
-                                    <th id="thOrderNumber" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider hide-mobile">Nº do Pedido</th>
-                                    <th id="thCustomerName" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Nome do Cliente</th>
-                                    <th id="thAmount" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Valor</th>
+                                    <th id="thNF" data-sort="nf" onclick="handleSort('nf')" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider hide-mobile sortable-header">NF <span class="sort-indicator"></span></th>
+                                    <th id="thOrderNumber" data-sort="orderNumber" onclick="handleSort('orderNumber')" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider hide-mobile sortable-header">Nº do Pedido <span class="sort-indicator"></span></th>
+                                    <th id="thCustomerName" data-sort="customerName" onclick="handleSort('customerName')" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider sortable-header">Nome do Cliente <span class="sort-indicator"></span></th>
+                                    <th id="thAmount" data-sort="amount" onclick="handleSort('amount')" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider sortable-header">Valor <span class="sort-indicator"></span></th>
 
-                                    <th id="thOrderDate" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider hide-mobile">Data do Pedido</th>
-                                    <th id="thCreditDays" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider hide-mobile">Dias de Crédito</th>
-                                    <th id="thDueDate" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Data de Vencimento</th>
-                                    <th id="thStatus" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                                    <th id="thOrderDate" data-sort="orderDate" onclick="handleSort('orderDate')" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider hide-mobile sortable-header">Data do Pedido <span class="sort-indicator"></span></th>
+                                    <th id="thCreditDays" data-sort="creditDays" onclick="handleSort('creditDays')" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider hide-mobile sortable-header">Dias de Crédito <span class="sort-indicator"></span></th>
+                                    <th id="thDueDate" data-sort="dueDate" onclick="handleSort('dueDate')" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider sortable-header">Data de Vencimento <span class="sort-indicator"></span></th>
+                                    <th id="thStatus" data-sort="status" onclick="handleSort('status')" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider sortable-header">Status <span class="sort-indicator"></span></th>
                                     <th id="thOperations" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                                         Operações
                                         <input type="checkbox" id="selectAll" onchange="toggleSelectAll()" class="ml-2 rounded border-gray-300 text-blue-600 focus:ring-blue-500">
@@ -892,7 +985,7 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-    <script src="script.js"></script>
+    <script src="script.js?v=1.3"></script>
     <script src="payment-functions.js"></script>
     <script src="customer-functions.js"></script>
     

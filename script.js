@@ -9,6 +9,12 @@ let chatContext = {
     language: 'zh' // 默认中文，'zh' 中文, 'pt' 葡萄牙语
 };
 
+// 排序状态
+let sortState = {
+    column: null,
+    direction: 'asc' // 'asc' 或 'desc'
+};
+
 // 数据验证和修复机制
 let dataValidationEnabled = true;
 let validationErrors = [];
@@ -1094,7 +1100,30 @@ function initLanguageSelector() {
 
 // 语言切换函数
 function changeLanguage() {
-    const lang = document.getElementById('languageSelect').value;
+    // 获取触发事件的选择器
+    const desktopSelect = document.getElementById('languageSelect');
+    const mobileSelect = document.getElementById('languageSelectMobile');
+    
+    // 确定当前选择的语言
+    let lang;
+    if (event && event.target) {
+        lang = event.target.value;
+    } else if (desktopSelect) {
+        lang = desktopSelect.value;
+    } else if (mobileSelect) {
+        lang = mobileSelect.value;
+    } else {
+        lang = 'pt'; // 默认葡萄牙语
+    }
+    
+    // 同步两个选择器的值
+    if (desktopSelect && desktopSelect.value !== lang) {
+        desktopSelect.value = lang;
+    }
+    if (mobileSelect && mobileSelect.value !== lang) {
+        mobileSelect.value = lang;
+    }
+    
     localStorage.setItem('selectedLanguage', lang);
     chatContext.language = lang;
     updateUILanguage(lang);
@@ -1195,6 +1224,17 @@ function updateUILanguage(lang) {
         if (options[4]) options[4].textContent = texts.archived;
     }
     
+    // 更新头部状态筛选选项
+    const statusFilterHeader = document.getElementById('statusFilterHeader');
+    if (statusFilterHeader) {
+        const headerOptions = statusFilterHeader.options;
+        if (headerOptions[0]) headerOptions[0].textContent = texts.allStatus;
+        if (headerOptions[1]) headerOptions[1].textContent = texts.statusPending;
+        if (headerOptions[2]) headerOptions[2].textContent = texts.statusPaid;
+        if (headerOptions[3]) headerOptions[3].textContent = texts.statusOverdue;
+        if (headerOptions[4]) headerOptions[4].textContent = texts.archived;
+    }
+    
     // 更新统计卡片标题
     const totalAmountLabel = document.getElementById('totalAmountLabel');
     const paidAmountLabel = document.getElementById('paidAmountLabel');
@@ -1219,6 +1259,17 @@ function updateUILanguage(lang) {
     if (orderDateLabel) orderDateLabel.innerHTML = texts.orderDateRequired + ' <span class="text-red-500">*</span>';
     if (orderDueDateLabel) orderDueDateLabel.textContent = texts.orderDueDateOptional;
     
+    // 更新移动端导航按钮
+    const mobileNavAdd = document.getElementById('mobileNavAdd');
+    const mobileNavChat = document.getElementById('mobileNavChat');
+    const mobileNavImport = document.getElementById('mobileNavImport');
+    const mobileNavReport = document.getElementById('mobileNavReport');
+    
+    if (mobileNavAdd) mobileNavAdd.textContent = texts.btnAdd;
+    if (mobileNavChat) mobileNavChat.textContent = texts.btnChat;
+    if (mobileNavImport) mobileNavImport.textContent = texts.btnImport;
+    if (mobileNavReport) mobileNavReport.textContent = texts.btnReport;
+    
     // 更新付款方式选项
     const paymentMethodTransferOption = document.getElementById('paymentMethodTransferOption');
     const paymentMethodTransferOption2 = document.getElementById('paymentMethodTransferOption2');
@@ -1238,19 +1289,15 @@ function updateUILanguage(lang) {
     if (selectOrderPlaceholder) selectOrderPlaceholder.textContent = texts.paymentOrderPlaceholder;
     
     // 更新搜索筛选区域
-    const customerSearchLabel = document.getElementById('customerSearchLabel');
-    const customerSearchInput = document.getElementById('customerSearch');
+
     const statusFilterLabel = document.getElementById('statusFilterLabel');
     const allStatusOption = document.getElementById('allStatusOption');
-    const dateRangeLabel = document.getElementById('dateRangeLabel');
-    const dateToLabel = document.getElementById('dateToLabel');
+
     
-    if (customerSearchLabel) customerSearchLabel.textContent = texts.customerSearch;
-    if (customerSearchInput) customerSearchInput.placeholder = texts.customerSearchPlaceholder;
+
     if (statusFilterLabel) statusFilterLabel.textContent = texts.statusFilter;
     if (allStatusOption) allStatusOption.textContent = texts.allStatus;
-    if (dateRangeLabel) dateRangeLabel.textContent = texts.dateRange;
-    if (dateToLabel) dateToLabel.textContent = texts.dateTo;
+
     
     // 更新状态选项
     const statusPendingOption = document.getElementById('statusPendingOption');
@@ -2330,25 +2377,24 @@ function updateRecordStatus(index, newStatus) {
 
 // 获取筛选后的记录
 function getFilteredRecords() {
-    const customerSearch = document.getElementById('customerSearch').value.toLowerCase();
-    const statusFilter = document.getElementById('statusFilter').value;
-    const dateFrom = document.getElementById('dateFrom').value;
-    const dateTo = document.getElementById('dateTo').value;
+
+    const statusFilterHeaderElement = document.getElementById('statusFilterHeader');
+
     
-    return records.filter(record => {
+    // 使用头部状态筛选器的值
+    const activeStatusFilter = statusFilterHeaderElement ? statusFilterHeaderElement.value : '';
+    
+    let filteredRecords = records.filter(record => {
         // 排除归档记录（除非明确筛选归档状态）
-        if (record.archived && statusFilter !== 'archived') {
+        if (record.archived && activeStatusFilter !== 'archived') {
             return false;
         }
         
-        // 客户名称筛选
-        if (customerSearch && !record.customerName.toLowerCase().includes(customerSearch)) {
-            return false;
-        }
+
         
         // 状态筛选
-        if (statusFilter) {
-            if (statusFilter === 'archived') {
+        if (activeStatusFilter) {
+            if (activeStatusFilter === 'archived') {
                 return record.archived === true;
             }
             
@@ -2356,7 +2402,7 @@ function getFilteredRecords() {
             const dueDate = new Date(record.dueDate);
             const daysDiff = Math.ceil((dueDate - today) / (1000 * 60 * 60 * 24));
             
-            switch (statusFilter) {
+            switch (activeStatusFilter) {
                 case 'pending':
                     if (record.status !== 'pending' || daysDiff < 0) return false;
                     break;
@@ -2369,18 +2415,115 @@ function getFilteredRecords() {
             }
         }
         
-        // 日期范围筛选
-        if (dateFrom && record.dueDate < dateFrom) return false;
-        if (dateTo && record.dueDate > dateTo) return false;
+
         
         return true;
     });
+    
+    // 应用排序
+    if (sortState.column) {
+        filteredRecords = sortRecords(filteredRecords, sortState.column, sortState.direction);
+    }
+    
+    return filteredRecords;
+}
+
+// 排序记录
+function sortRecords(records, column, direction) {
+    return records.sort((a, b) => {
+        let valueA, valueB;
+        
+        switch (column) {
+            case 'nf':
+                valueA = a.nf || '';
+                valueB = b.nf || '';
+                break;
+            case 'orderNumber':
+                valueA = a.orderNumber || '';
+                valueB = b.orderNumber || '';
+                break;
+            case 'customerName':
+                valueA = a.customerName || '';
+                valueB = b.customerName || '';
+                break;
+            case 'amount':
+                valueA = parseFloat(a.amount) || 0;
+                valueB = parseFloat(b.amount) || 0;
+                break;
+            case 'orderDate':
+                valueA = new Date(a.orderDate);
+                valueB = new Date(b.orderDate);
+                break;
+            case 'creditDays':
+                valueA = parseInt(a.creditDays) || 0;
+                valueB = parseInt(b.creditDays) || 0;
+                break;
+            case 'dueDate':
+                valueA = new Date(a.dueDate);
+                valueB = new Date(b.dueDate);
+                break;
+            case 'status':
+                valueA = a.status || '';
+                valueB = b.status || '';
+                break;
+            default:
+                return 0;
+        }
+        
+        // 处理字符串比较
+        if (typeof valueA === 'string' && typeof valueB === 'string') {
+            valueA = valueA.toLowerCase();
+            valueB = valueB.toLowerCase();
+        }
+        
+        let comparison = 0;
+        if (valueA > valueB) {
+            comparison = 1;
+        } else if (valueA < valueB) {
+            comparison = -1;
+        }
+        
+        return direction === 'desc' ? -comparison : comparison;
+    });
+}
+
+// 处理表头点击排序
+function handleSort(column) {
+    if (sortState.column === column) {
+        // 如果点击的是同一列，切换排序方向
+        sortState.direction = sortState.direction === 'asc' ? 'desc' : 'asc';
+    } else {
+        // 如果点击的是不同列，设置新列并默认升序
+        sortState.column = column;
+        sortState.direction = 'asc';
+    }
+    
+    // 更新排序指示器
+    updateSortIndicators();
+    
+    // 重新渲染表格
+    updateTable();
+}
+
+// 更新排序指示器
+function updateSortIndicators() {
+    // 清除所有排序指示器
+    const headers = document.querySelectorAll('th[data-sort]');
+    headers.forEach(header => {
+        header.classList.remove('sort-asc', 'sort-desc');
+    });
+    
+    // 添加当前排序指示器
+    if (sortState.column) {
+        const currentHeader = document.querySelector(`th[data-sort="${sortState.column}"]`);
+        if (currentHeader) {
+            currentHeader.classList.add(`sort-${sortState.direction}`);
+        }
+    }
 }
 
 // 筛选记录
-function filterRecords() {
-    loadRecords();
-}
+
 
 // 格式化货币为巴西雷亚尔
 function formatCurrency(value) {
@@ -4181,3 +4324,118 @@ function toggleCustomerPanel() {
         toggleButton.style.left = '4px';
     }
 }
+
+// 客户搜索功能
+// 移动端搜索切换功能
+function toggleMobileSearch() {
+    const mobileSearchBar = document.getElementById('mobileSearchBar');
+    const mobileSearchInput = document.getElementById('mobileCustomerSearchInput');
+    
+    if (mobileSearchBar.classList.contains('hidden')) {
+        mobileSearchBar.classList.remove('hidden');
+        setTimeout(() => mobileSearchInput.focus(), 100);
+    } else {
+        mobileSearchBar.classList.add('hidden');
+        mobileSearchInput.value = '';
+        clearCustomerSearch();
+    }
+}
+
+function searchCustomers(query) {
+    const searchResults = document.getElementById('customerSearchResults');
+    const clearButton = document.getElementById('clearSearchBtn');
+    
+    if (!query || query.trim() === '') {
+        searchResults.style.display = 'none';
+        if (clearButton) clearButton.style.display = 'none';
+        return;
+    }
+    
+    // 获取所有客户名称
+    const customers = [...new Set(records.map(record => record.customerName).filter(name => name))];
+    
+    // 过滤匹配的客户
+    const filteredCustomers = customers.filter(customer => 
+        customer.toLowerCase().includes(query.toLowerCase())
+    );
+    
+    if (filteredCustomers.length > 0) {
+        searchResults.innerHTML = filteredCustomers.map(customer => 
+            `<div class="px-4 py-2 hover:bg-gray-100 cursor-pointer border-b border-gray-200 last:border-b-0" onclick="selectCustomer('${customer}')">
+                <div class="font-medium text-gray-900">${customer}</div>
+            </div>`
+        ).join('');
+        searchResults.style.display = 'block';
+        if (clearButton) clearButton.style.display = 'block';
+    } else {
+        searchResults.innerHTML = '<div class="px-4 py-2 text-gray-500">未找到匹配的客户</div>';
+        searchResults.style.display = 'block';
+        clearButton.style.display = 'block';
+    }
+}
+
+// 选择客户
+function selectCustomer(customerName) {
+    const searchInput = document.getElementById('customerSearchInput');
+    const mobileSearchInput = document.getElementById('mobileCustomerSearchInput');
+    const searchResults = document.getElementById('customerSearchResults');
+    const clearButton = document.getElementById('clearSearchBtn');
+    
+    if (searchInput) searchInput.value = customerName;
+    if (mobileSearchInput) mobileSearchInput.value = customerName;
+    searchResults.style.display = 'none';
+    if (clearButton) clearButton.style.display = 'block';
+    
+    // 隐藏移动端搜索栏
+    const mobileSearchBar = document.getElementById('mobileSearchBar');
+    if (mobileSearchBar && !mobileSearchBar.classList.contains('hidden')) {
+        mobileSearchBar.classList.add('hidden');
+    }
+    
+    // 过滤显示该客户的记录
+    filterRecordsByCustomer(customerName);
+}
+
+// 按客户过滤记录
+function filterRecordsByCustomer(customerName) {
+    // 更新客户筛选下拉框
+    const customerFilter = document.getElementById('customerFilter');
+    if (customerFilter) {
+        customerFilter.value = customerName;
+    }
+    
+    // 触发表格更新
+    updateTable();
+}
+
+// 清除搜索
+function clearCustomerSearch() {
+    const searchInput = document.getElementById('customerSearchInput');
+    const mobileSearchInput = document.getElementById('mobileCustomerSearchInput');
+    const searchResults = document.getElementById('customerSearchResults');
+    const clearButton = document.getElementById('clearSearchBtn');
+    
+    if (searchInput) searchInput.value = '';
+    if (mobileSearchInput) mobileSearchInput.value = '';
+    searchResults.style.display = 'none';
+    if (clearButton) clearButton.style.display = 'none';
+    
+    // 清除客户筛选
+    const customerFilter = document.getElementById('customerFilter');
+    if (customerFilter) {
+        customerFilter.value = '';
+    }
+    
+    // 更新表格显示所有记录
+    updateTable();
+}
+
+// 点击外部关闭搜索结果
+document.addEventListener('click', function(event) {
+    const searchContainer = document.getElementById('customerSearchContainer');
+    const searchResults = document.getElementById('customerSearchResults');
+    
+    if (searchContainer && !searchContainer.contains(event.target)) {
+        searchResults.style.display = 'none';
+    }
+});
