@@ -42,8 +42,13 @@ CREATE TRIGGER update_debt_records_updated_at
 ALTER TABLE public.debt_records ENABLE ROW LEVEL SECURITY;
 
 -- 创建允许所有操作的策略（在生产环境中应该根据实际需求调整）
+DROP POLICY IF EXISTS "Allow all operations on debt_records" ON public.debt_records;
 CREATE POLICY "Allow all operations on debt_records" ON public.debt_records
     FOR ALL USING (true) WITH CHECK (true);
+
+-- 授予 anon/authenticated 角色表权限（否则前端可能会报权限错误）
+GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE public.debt_records TO anon, authenticated;
+GRANT USAGE, SELECT ON SEQUENCE public.debt_records_id_seq TO anon, authenticated;
 
 -- 验证表创建
 SELECT 
@@ -68,8 +73,8 @@ INSERT INTO public.debt_records (
     due_date, 
     status, 
     notes
-) VALUES 
-(
+)
+SELECT
     '123456',
     'ORD001',
     'João Silva',
@@ -79,8 +84,22 @@ INSERT INTO public.debt_records (
     CURRENT_DATE + INTERVAL '30 days',
     'pending',
     'Teste de sincronização'
-),
-(
+WHERE NOT EXISTS (
+    SELECT 1 FROM public.debt_records WHERE order_number = 'ORD001'
+);
+
+INSERT INTO public.debt_records (
+    nf, 
+    order_number, 
+    customer_name, 
+    amount, 
+    order_date, 
+    credit_days, 
+    due_date, 
+    status, 
+    notes
+)
+SELECT
     '123457',
     'ORD002',
     'Maria Santos',
@@ -90,6 +109,8 @@ INSERT INTO public.debt_records (
     CURRENT_DATE + INTERVAL '55 days',
     'pending',
     'Pedido de teste'
+WHERE NOT EXISTS (
+    SELECT 1 FROM public.debt_records WHERE order_number = 'ORD002'
 );
 
 -- 验证数据插入

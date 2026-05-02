@@ -156,6 +156,18 @@ let lastSyncTime = null;
 // Inicializar cliente Supabase
 function initializeSupabase() {
     try {
+        const savedProvider = (window.CLOUD_CONFIG && window.CLOUD_CONFIG.provider) || localStorage.getItem('CLOUD_PROVIDER') || 'supabase';
+        const savedLang = localStorage.getItem('selectedLanguage') || ((navigator.language || '').startsWith('zh') ? 'zh' : 'pt');
+        const loadBtn = document.getElementById('loadBtn');
+        if (savedProvider === 'none') {
+            supabase = null;
+            isCloudEnabled = false;
+            if (loadBtn) loadBtn.style.display = 'none';
+            updateSyncStatus(savedLang === 'zh' ? '本地模式' : 'Modo local', 'info');
+            return;
+        }
+        if (loadBtn) loadBtn.style.display = '';
+
         if (window.SUPABASE_CONFIG && window.supabase) {
             supabase = window.supabase.createClient(
                 window.SUPABASE_CONFIG.url,
@@ -163,7 +175,7 @@ function initializeSupabase() {
             );
             isCloudEnabled = true;
             console.log('Cliente Supabase inicializado com sucesso');
-            updateSyncStatus('Conectado', 'success');
+            updateSyncStatus(savedLang === 'zh' ? '已连接' : 'Conectado', 'success');
             
             // Carregar dados automaticamente da nuvem
             setTimeout(async () => {
@@ -181,12 +193,56 @@ function initializeSupabase() {
             }
         } else {
             console.warn('Configuração Supabase não encontrada ou biblioteca não carregada');
-            updateSyncStatus('Erro de configuração', 'error');
+            updateSyncStatus(savedLang === 'zh' ? '配置错误' : 'Erro de configuração', 'error');
         }
     } catch (error) {
         console.error('Falha na inicialização do Supabase:', error);
-        updateSyncStatus('Falha na conexão', 'error');
+        const savedLang = localStorage.getItem('selectedLanguage') || ((navigator.language || '').startsWith('zh') ? 'zh' : 'pt');
+        updateSyncStatus(savedLang === 'zh' ? '连接失败' : 'Falha na conexão', 'error');
         isCloudEnabled = false;
+    }
+}
+
+function openCloudSettings() {
+    const lang = (chatContext && chatContext.language) || localStorage.getItem('selectedLanguage') || ((navigator.language || '').startsWith('zh') ? 'zh' : 'pt');
+    const enableCloud = confirm(
+        lang === 'zh'
+            ? '是否启用云同步（Supabase）？\n\n确定：启用/切换 Supabase\n取消：关闭云同步（仅本地）'
+            : 'Ativar sincronização em nuvem (Supabase)?\n\nOK: ativar/trocar Supabase\nCancelar: modo local'
+    );
+
+    if (!enableCloud) {
+        if (typeof window.disableCloudSync === 'function') {
+            window.disableCloudSync();
+        } else {
+            localStorage.setItem('CLOUD_PROVIDER', 'none');
+            window.location.reload();
+        }
+        return;
+    }
+
+    const currentUrl = (window.SUPABASE_CONFIG && window.SUPABASE_CONFIG.url) || '';
+    const currentAnonKey = (window.SUPABASE_CONFIG && window.SUPABASE_CONFIG.anonKey) || '';
+
+    const url = prompt(
+        lang === 'zh' ? '请输入新的 Supabase URL（例如：https://xxxx.supabase.co）' : 'Informe o novo Supabase URL (ex: https://xxxx.supabase.co)',
+        currentUrl
+    );
+    if (!url || !url.trim()) return;
+
+    const anonKey = prompt(
+        lang === 'zh' ? '请输入新的 Supabase anon key（JWT）' : 'Informe o novo anon key (JWT)',
+        currentAnonKey
+    );
+    if (!anonKey || !anonKey.trim()) return;
+
+    if (typeof window.setSupabaseConfig === 'function') {
+        window.setSupabaseConfig(url.trim(), anonKey.trim());
+    } else {
+        localStorage.setItem('CLOUD_SUPABASE_URL', url.trim());
+        localStorage.setItem('CLOUD_SUPABASE_ANON_KEY', anonKey.trim());
+        localStorage.setItem('CLOUD_PROVIDER', 'supabase');
+        window.location.reload();
     }
 }
 
@@ -380,10 +436,24 @@ async function manualSync() {
     } catch (error) {
         console.error('Falha na sincronização:', error);
         updateSyncStatus(chatContext.language === 'zh' ? '同步失败' : 'Falha na sincronização', 'error');
+        const errorCode = error && (error.code || error.status || error.statusCode);
+        const errorMsg = error && (error.message || error.error_description) ? (error.message || error.error_description) : String(error);
+        const normalizedMsg = String(errorMsg || '').toLowerCase();
+        const permissionHint = normalizedMsg.includes('row-level security')
+            || normalizedMsg.includes('row level security')
+            || normalizedMsg.includes('permission denied')
+            || String(errorCode || '').includes('42501')
+            || String(errorCode || '').includes('401')
+            || String(errorCode || '').includes('403');
+        const extraHint = permissionHint
+            ? (chatContext.language === 'zh'
+                ? '\n\n可能原因：Supabase 表开启了 RLS / 未授予 anon 权限。\n解决：在 Supabase SQL Editor 重新执行 CREATE_SUPABASE_TABLE.sql（包含 GRANT 和 Allow all policy）。'
+                : '\n\nPossível causa: RLS ativo / permissões do anon não concedidas.\nSolução: execute novamente CREATE_SUPABASE_TABLE.sql (inclui GRANT e policy Allow all).')
+            : '';
         showNotification(
             chatContext.language === 'zh' 
-                ? '同步失败: ' + error.message 
-                : 'Falha na sincronização: ' + error.message,
+                ? `同步失败${errorCode ? `(${errorCode})` : ''}: ${errorMsg}${extraHint}`
+                : `Falha na sincronização${errorCode ? `(${errorCode})` : ''}: ${errorMsg}${extraHint}`,
             'error'
         );
     } finally {
@@ -422,6 +492,24 @@ async function loadFromCloud() {
                 
                 alert(errorMsg);
                 updateSyncStatus(chatContext.language === 'zh' ? '表不存在' : 'Tabela não existe', 'error');
+                return;
+            }
+
+            const errCode = error && (error.code || error.status || error.statusCode);
+            const errMsg = error && (error.message || error.error_description) ? (error.message || error.error_description) : String(error);
+            const lowerMsg = String(errMsg || '').toLowerCase();
+            const permissionIssue = lowerMsg.includes('row-level security')
+                || lowerMsg.includes('row level security')
+                || lowerMsg.includes('permission denied')
+                || String(errCode || '').includes('42501')
+                || String(errCode || '').includes('401')
+                || String(errCode || '').includes('403');
+            if (permissionIssue) {
+                const tip = chatContext.language === 'zh'
+                    ? `云端权限不足（可能是 RLS/GRANT 未配置）。\n\n请在 Supabase SQL Editor 执行 CREATE_SUPABASE_TABLE.sql（包含 Allow all policy 和 GRANT）。\n\n错误：${errCode ? `(${errCode}) ` : ''}${errMsg}`
+                    : `Permissão insuficiente (possível RLS/GRANT não configurado).\n\nExecute CREATE_SUPABASE_TABLE.sql no SQL Editor (inclui policy Allow all e GRANT).\n\nErro: ${errCode ? `(${errCode}) ` : ''}${errMsg}`;
+                alert(tip);
+                updateSyncStatus(chatContext.language === 'zh' ? '权限不足' : 'Sem permissão', 'error');
                 return;
             }
             
@@ -700,7 +788,8 @@ const uiTexts = {
         orderRecords: '订单记录',
         paymentRecords: '付款记录',
         // 登录登出
-        btnLogout: '退出登录'
+        btnLogout: '退出登录',
+        cloudSettingsMenu: '云端设置'
     },
     pt: {
         navTitle: 'Sistema de Gestão de Cobrança',
@@ -793,6 +882,7 @@ const uiTexts = {
         paymentRecords: 'Registros de Pagamentos',
         // 登录登出
         btnLogout: 'Sair',
+        cloudSettingsMenu: 'Configurar Nuvem',
         // 报表相关翻译
         reportTitle: 'Relatório de Gestão de Cobrança',
         reportGeneratedTime: 'Hora de Geração',
@@ -1162,6 +1252,8 @@ function updateUILanguage(lang) {
     // 更新下拉菜单中的退出按钮文本
     const menuLogoutText = document.getElementById('menuLogoutText');
     if (menuLogoutText) menuLogoutText.textContent = texts.btnLogout;
+    const menuCloudSettingsText = document.getElementById('menuCloudSettingsText');
+    if (menuCloudSettingsText) menuCloudSettingsText.textContent = texts.cloudSettingsMenu;
     
     // 更新导入模态框
     const importModalTitle = document.getElementById('importModalTitle');

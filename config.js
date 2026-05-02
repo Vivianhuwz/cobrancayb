@@ -1,8 +1,43 @@
 // Supabase配置
 // 收账管理系统云同步配置
+const defaultSupabaseConfig = {
+  url: 'https://ptofzaqttafyfirpwtab.supabase.co',
+  anonKey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InB0b2Z6YXF0dGFmeWZpcnB3dGFiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc3MzQ2NjIsImV4cCI6MjA5MzMxMDY2Mn0.soaBZnh8PbxapB0igCUDVAmMM1S93YdfCP9vcIr9myk'
+};
+
+const storedSupabaseUrl = localStorage.getItem('CLOUD_SUPABASE_URL');
+const storedSupabaseAnonKey = localStorage.getItem('CLOUD_SUPABASE_ANON_KEY');
+
 window.SUPABASE_CONFIG = {
-  url: 'https://zmattivirzwoiryrqlnv.supabase.co',
-  anonKey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InptYXR0aXZpcnp3b2lyeXJxbG52Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTYxNDY2ODcsImV4cCI6MjA3MTcyMjY4N30.FGieFplfH4jxLkskzjVffstGrm5a5Jmf6GeWFNgwoH0'
+  url: storedSupabaseUrl || defaultSupabaseConfig.url,
+  anonKey: storedSupabaseAnonKey || defaultSupabaseConfig.anonKey
+};
+
+window.CLOUD_CONFIG = {
+  provider: localStorage.getItem('CLOUD_PROVIDER') || 'supabase'
+};
+
+window.setSupabaseConfig = function (url, anonKey) {
+  if (typeof url === 'string' && url.trim()) {
+    localStorage.setItem('CLOUD_SUPABASE_URL', url.trim());
+  }
+  if (typeof anonKey === 'string' && anonKey.trim()) {
+    localStorage.setItem('CLOUD_SUPABASE_ANON_KEY', anonKey.trim());
+  }
+  localStorage.setItem('CLOUD_PROVIDER', 'supabase');
+  window.location.reload();
+};
+
+window.disableCloudSync = function () {
+  localStorage.setItem('CLOUD_PROVIDER', 'none');
+  window.location.reload();
+};
+
+window.clearCloudConfig = function () {
+  localStorage.removeItem('CLOUD_SUPABASE_URL');
+  localStorage.removeItem('CLOUD_SUPABASE_ANON_KEY');
+  localStorage.removeItem('CLOUD_PROVIDER');
+  window.location.reload();
 };
 
 // 数据库表配置
