@@ -171,6 +171,12 @@ async function loadFromNeon() {
         method: 'GET',
         headers: { ...getCloudHeaders() }
     });
+    const contentType = response.headers.get('content-type') || '';
+    if (!contentType.includes('application/json')) {
+        const err = new Error(`云端接口未部署或被重定向（/\\.netlify/functions/accounting_load 返回的不是 JSON）。HTTP ${response.status}`);
+        err.code = 'FUNCTION_NOT_READY';
+        throw err;
+    }
     const payload = await response.json().catch(() => null);
     if (!response.ok) {
         const errorMessage = payload && payload.message ? payload.message : '请求失败';
@@ -195,6 +201,12 @@ async function saveToNeon(dataToSave) {
         },
         body: JSON.stringify({ data: dataToSave })
     });
+    const contentType = response.headers.get('content-type') || '';
+    if (!contentType.includes('application/json')) {
+        const err = new Error(`云端接口未部署或被重定向（/\\.netlify/functions/accounting_save 返回的不是 JSON）。HTTP ${response.status}`);
+        err.code = 'FUNCTION_NOT_READY';
+        throw err;
+    }
     const payload = await response.json().catch(() => null);
     if (!response.ok) {
         const errorMessage = payload && payload.message ? payload.message : '请求失败';
@@ -237,6 +249,19 @@ function initializeSupabase() {
                 } catch (error) {
                     console.log('Falha ao conectar Neon:', error && error.message ? error.message : error);
                     updateSyncStatus(savedLang === 'zh' ? 'Neon 连接失败' : 'Falha Neon', 'error');
+                    const code = error && error.code ? ` (${error.code})` : '';
+                    const message = error && error.message ? error.message : String(error);
+                    const tip = (error && error.code === 'UNAUTHORIZED')
+                        ? (savedLang === 'zh'
+                            ? '（Netlify 设置了 SYNC_TOKEN，需要在云端设置里输入同样的口令，或删除 Netlify 的 SYNC_TOKEN 环境变量）'
+                            : '(SYNC_TOKEN configurado no Netlify: informe o mesmo token nas configurações, ou remova SYNC_TOKEN do Netlify)')
+                        : '';
+                    showNotification(
+                        savedLang === 'zh'
+                            ? `Neon 连接失败${code}: ${message}${tip ? ' ' + tip : ''}`
+                            : `Falha Neon${code}: ${message}${tip ? ' ' + tip : ''}`,
+                        'error'
+                    );
                     isCloudEnabled = false;
                 }
             }, 600);
@@ -562,10 +587,15 @@ async function manualSync() {
                 ? '\n\n可能原因：Supabase 表开启了 RLS / 未授予 anon 权限。\n解决：在 Supabase SQL Editor 重新执行 CREATE_SUPABASE_TABLE.sql（包含 GRANT 和 Allow all policy）。'
                 : '\n\nPossível causa: RLS ativo / permissões do anon não concedidas.\nSolução: execute novamente CREATE_SUPABASE_TABLE.sql (inclui GRANT e policy Allow all).')
             : '';
+        const neonTokenHint = (getCloudProvider() === 'neon' && String(errorCode || '').toUpperCase() === 'UNAUTHORIZED')
+            ? (chatContext.language === 'zh'
+                ? '\n\n提示：Netlify 如果设置了 SYNC_TOKEN，这里必须填写相同的 Neon 同步口令；否则请删除 Netlify 的 SYNC_TOKEN 环境变量。'
+                : '\n\nDica: Se SYNC_TOKEN estiver configurado no Netlify, informe o mesmo token; caso contrário, remova SYNC_TOKEN do Netlify.')
+            : '';
         showNotification(
             chatContext.language === 'zh' 
-                ? `同步失败${errorCode ? `(${errorCode})` : ''}: ${errorMsg}${extraHint}`
-                : `Falha na sincronização${errorCode ? `(${errorCode})` : ''}: ${errorMsg}${extraHint}`,
+                ? `同步失败${errorCode ? `(${errorCode})` : ''}: ${errorMsg}${extraHint}${neonTokenHint}`
+                : `Falha na sincronização${errorCode ? `(${errorCode})` : ''}: ${errorMsg}${extraHint}${neonTokenHint}`,
             'error'
         );
     } finally {

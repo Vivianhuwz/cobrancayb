@@ -14,11 +14,15 @@
 
 # 重定向规则
 [[redirects]]
+  from = "/.netlify/functions/*"
+  to = "/.netlify/functions/:splat"
+  status = 200
+
+[[redirects]]
   # 所有路由都重定向到index.html（SPA路由支持）
   from = "/*"
   to = "/index.html"
   status = 200
-  conditions = {Role = ["admin", "editor"]}
 
 # 头部设置
 [[headers]]
