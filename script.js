@@ -147,20 +147,77 @@ function displayValidationErrors() {
 }
 
 // Cliente Supabase e variáveis relacionadas à sincronização na nuvem
-let supabase = null;
+let supabaseClient = null;
 let isCloudEnabled = false;
 let syncInProgress = false;
 let autoSyncInterval = null;
 let lastSyncTime = null;
 
-// Inicializar cliente Supabase
+function getCloudProvider() {
+    return (window.CLOUD_CONFIG && window.CLOUD_CONFIG.provider) || localStorage.getItem('CLOUD_PROVIDER') || 'supabase';
+}
+
+function getCloudSyncToken() {
+    return localStorage.getItem('CLOUD_SYNC_TOKEN') || '';
+}
+
+function getCloudHeaders() {
+    const token = getCloudSyncToken();
+    return token ? { 'x-sync-token': token } : {};
+}
+
+async function loadFromNeon() {
+    const response = await fetch('/.netlify/functions/accounting_load', {
+        method: 'GET',
+        headers: { ...getCloudHeaders() }
+    });
+    const payload = await response.json().catch(() => null);
+    if (!response.ok) {
+        const errorMessage = payload && payload.message ? payload.message : '请求失败';
+        const err = new Error(errorMessage);
+        err.code = payload && payload.error ? payload.error : 'REQUEST_FAILED';
+        throw err;
+    }
+    if (!payload || !payload.ok) {
+        const err = new Error('云端返回异常');
+        err.code = payload && payload.error ? payload.error : 'BAD_RESPONSE';
+        throw err;
+    }
+    return payload;
+}
+
+async function saveToNeon(dataToSave) {
+    const response = await fetch('/.netlify/functions/accounting_save', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            ...getCloudHeaders()
+        },
+        body: JSON.stringify({ data: dataToSave })
+    });
+    const payload = await response.json().catch(() => null);
+    if (!response.ok) {
+        const errorMessage = payload && payload.message ? payload.message : '请求失败';
+        const err = new Error(errorMessage);
+        err.code = payload && payload.error ? payload.error : 'REQUEST_FAILED';
+        throw err;
+    }
+    if (!payload || !payload.ok) {
+        const err = new Error('云端返回异常');
+        err.code = payload && payload.error ? payload.error : 'BAD_RESPONSE';
+        throw err;
+    }
+    return payload;
+}
+
+// Inicializar cliente Supabase / Neon
 function initializeSupabase() {
     try {
-        const savedProvider = (window.CLOUD_CONFIG && window.CLOUD_CONFIG.provider) || localStorage.getItem('CLOUD_PROVIDER') || 'supabase';
+        const savedProvider = getCloudProvider();
         const savedLang = localStorage.getItem('selectedLanguage') || ((navigator.language || '').startsWith('zh') ? 'zh' : 'pt');
         const loadBtn = document.getElementById('loadBtn');
         if (savedProvider === 'none') {
-            supabase = null;
+            supabaseClient = null;
             isCloudEnabled = false;
             if (loadBtn) loadBtn.style.display = 'none';
             updateSyncStatus(savedLang === 'zh' ? '本地模式' : 'Modo local', 'info');
@@ -168,8 +225,29 @@ function initializeSupabase() {
         }
         if (loadBtn) loadBtn.style.display = '';
 
+        if (savedProvider === 'neon') {
+            supabaseClient = null;
+            isCloudEnabled = true;
+            updateSyncStatus(savedLang === 'zh' ? 'Neon 连接中...' : 'Neon conectando...', 'syncing');
+            setTimeout(async () => {
+                try {
+                    await loadFromNeon();
+                    updateSyncStatus(savedLang === 'zh' ? 'Neon 已连接' : 'Neon conectado', 'success');
+                    await loadFromCloud();
+                } catch (error) {
+                    console.log('Falha ao conectar Neon:', error && error.message ? error.message : error);
+                    updateSyncStatus(savedLang === 'zh' ? 'Neon 连接失败' : 'Falha Neon', 'error');
+                    isCloudEnabled = false;
+                }
+            }, 600);
+            if (window.SYNC_CONFIG && window.SYNC_CONFIG.autoSync) {
+                startAutoSync();
+            }
+            return;
+        }
+
         if (window.SUPABASE_CONFIG && window.supabase) {
-            supabase = window.supabase.createClient(
+            supabaseClient = window.supabase.createClient(
                 window.SUPABASE_CONFIG.url,
                 window.SUPABASE_CONFIG.anonKey
             );
@@ -205,17 +283,37 @@ function initializeSupabase() {
 
 function openCloudSettings() {
     const lang = (chatContext && chatContext.language) || localStorage.getItem('selectedLanguage') || ((navigator.language || '').startsWith('zh') ? 'zh' : 'pt');
-    const enableCloud = confirm(
+    const current = getCloudProvider();
+    const choice = prompt(
         lang === 'zh'
-            ? '是否启用云同步（Supabase）？\n\n确定：启用/切换 Supabase\n取消：关闭云同步（仅本地）'
-            : 'Ativar sincronização em nuvem (Supabase)?\n\nOK: ativar/trocar Supabase\nCancelar: modo local'
+            ? `选择云端模式：\n1 = 本地（关闭云同步）\n2 = Supabase\n3 = Neon\n\n当前：${current}\n\n请输入 1/2/3：`
+            : `Escolha o modo de nuvem:\n1 = Local (sem nuvem)\n2 = Supabase\n3 = Neon\n\nAtual: ${current}\n\nDigite 1/2/3:`,
+        current === 'neon' ? '3' : (current === 'supabase' ? '2' : '1')
     );
-
-    if (!enableCloud) {
+    if (!choice) return;
+    const normalized = String(choice).trim();
+    if (normalized === '1') {
         if (typeof window.disableCloudSync === 'function') {
             window.disableCloudSync();
         } else {
             localStorage.setItem('CLOUD_PROVIDER', 'none');
+            window.location.reload();
+        }
+        return;
+    }
+    if (normalized === '3') {
+        const currentToken = getCloudSyncToken();
+        const token = prompt(
+            lang === 'zh' ? '请输入 Neon 同步口令（可留空，不建议留空）' : 'Informe o token de sincronização do Neon (pode ficar vazio)',
+            currentToken
+        );
+        if (typeof window.enableNeonSync === 'function') {
+            window.enableNeonSync(token || '');
+        } else {
+            if (token && token.trim()) {
+                localStorage.setItem('CLOUD_SYNC_TOKEN', token.trim());
+            }
+            localStorage.setItem('CLOUD_PROVIDER', 'neon');
             window.location.reload();
         }
         return;
@@ -380,6 +478,7 @@ async function manualSync() {
         
         // Obter dados locais
         const localRecords = JSON.parse(localStorage.getItem('accountRecords')) || [];
+        const provider = getCloudProvider();
         
         if (localRecords.length === 0) {
             showNotification(chatContext.language === 'zh' ? '没有本地数据需要同步' : 'Nenhum dado local para sincronizar', 'info');
@@ -387,6 +486,19 @@ async function manualSync() {
             return;
         }
         
+        if (provider === 'neon') {
+            await saveToNeon(localRecords);
+            lastSyncTime = new Date();
+            updateSyncStatus(chatContext.language === 'zh' ? '同步成功' : 'Sincronizado', 'success');
+            showNotification(
+                chatContext.language === 'zh'
+                    ? `成功同步 ${localRecords.length} 条记录到云端`
+                    : `${localRecords.length} registros sincronizados com sucesso`,
+                'success'
+            );
+            return;
+        }
+
         // 转换数据格式以匹配数据库结构
         const recordsToSync = localRecords.map(record => ({
             nf: record.nf || null,
@@ -405,7 +517,7 @@ async function manualSync() {
         }));
         
         // 清空云端数据并插入新数据
-        const { error: deleteError } = await supabase
+        const { error: deleteError } = await supabaseClient
             .from(window.DB_CONFIG.tableName)
             .delete()
             .neq('id', 0); // 删除所有记录
@@ -415,7 +527,7 @@ async function manualSync() {
         }
         
         // 插入新数据
-        const { data, error } = await supabase
+        const { data, error } = await supabaseClient
             .from(window.DB_CONFIG.tableName)
             .insert(recordsToSync)
             .select();
@@ -471,75 +583,87 @@ async function loadFromCloud() {
     try {
         syncInProgress = true;
         updateSyncStatus(chatContext.language === 'zh' ? '加载中...' : 'Carregando...', 'syncing');
-        
-        console.log('Carregando dados da nuvem...');
-        console.log('Nome da tabela:', window.DB_CONFIG.tableName);
-        console.log('Supabase URL:', window.SUPABASE_CONFIG.url);
-        
-        const { data, error } = await supabase
-            .from(window.DB_CONFIG.tableName)
-            .select('*')
-            .order('created_at', { ascending: false });
-        
-        if (error) {
-            console.error('Erro de consulta Supabase:', error);
-            
-            // 检查是否是表不存在的错误
-            if (error.code === 'PGRST205' || error.message.includes('Could not find the table')) {
-                const errorMsg = chatContext.language === 'zh' 
-                    ? `数据库表 '${window.DB_CONFIG.tableName}' 不存在。\n\n请按照以下步骤解决：\n1. 打开 Supabase 控制台\n2. 进入 SQL Editor\n3. 执行 CREATE_SUPABASE_TABLE.sql 文件中的脚本\n\n详细说明请查看 SUPABASE_数据库配置指南.md 文件`
-                    : `A tabela '${window.DB_CONFIG.tableName}' não existe no banco de dados.\n\nPara resolver:\n1. Abra o console do Supabase\n2. Vá para SQL Editor\n3. Execute o script do arquivo CREATE_SUPABASE_TABLE.sql\n\nVeja o guia SUPABASE_数据库配置指南.md para detalhes`;
-                
-                alert(errorMsg);
-                updateSyncStatus(chatContext.language === 'zh' ? '表不存在' : 'Tabela não existe', 'error');
-                return;
+
+        const provider = getCloudProvider();
+        let cloudRecords = [];
+
+        if (provider === 'neon') {
+            const payload = await loadFromNeon();
+            const raw = payload && payload.data ? payload.data : null;
+            cloudRecords = Array.isArray(raw) ? raw : (raw && Array.isArray(raw.records) ? raw.records : []);
+        } else {
+            console.log('Carregando dados da nuvem...');
+            console.log('Nome da tabela:', window.DB_CONFIG.tableName);
+            console.log('Supabase URL:', window.SUPABASE_CONFIG.url);
+
+            const { data, error } = await supabaseClient
+                .from(window.DB_CONFIG.tableName)
+                .select('*')
+                .order('created_at', { ascending: false });
+
+            if (error) {
+                console.error('Erro de consulta Supabase:', error);
+
+                // 检查是否是表不存在的错误
+                if (error.code === 'PGRST205' || error.message.includes('Could not find the table')) {
+                    const errorMsg = chatContext.language === 'zh' 
+                        ? `数据库表 '${window.DB_CONFIG.tableName}' 不存在。\n\n请按照以下步骤解决：\n1. 打开 Supabase 控制台\n2. 进入 SQL Editor\n3. 执行 CREATE_SUPABASE_TABLE.sql 文件中的脚本\n\n详细说明请查看 SUPABASE_数据库配置指南.md 文件`
+                        : `A tabela '${window.DB_CONFIG.tableName}' não existe no banco de dados.\n\nPara resolver:\n1. Abra o console do Supabase\n2. Vá para SQL Editor\n3. Execute o script do arquivo CREATE_SUPABASE_TABLE.sql\n\nVeja o guia SUPABASE_数据库配置指南.md para detalhes`;
+
+                    alert(errorMsg);
+                    updateSyncStatus(chatContext.language === 'zh' ? '表不存在' : 'Tabela não existe', 'error');
+                    return;
+                }
+
+                const errCode = error && (error.code || error.status || error.statusCode);
+                const errMsg = error && (error.message || error.error_description) ? (error.message || error.error_description) : String(error);
+                const lowerMsg = String(errMsg || '').toLowerCase();
+                const permissionIssue = lowerMsg.includes('row-level security')
+                    || lowerMsg.includes('row level security')
+                    || lowerMsg.includes('permission denied')
+                    || String(errCode || '').includes('42501')
+                    || String(errCode || '').includes('401')
+                    || String(errCode || '').includes('403');
+                if (permissionIssue) {
+                    const tip = chatContext.language === 'zh'
+                        ? `云端权限不足（可能是 RLS/GRANT 未配置）。\n\n请在 Supabase SQL Editor 执行 CREATE_SUPABASE_TABLE.sql（包含 Allow all policy 和 GRANT）。\n\n错误：${errCode ? `(${errCode}) ` : ''}${errMsg}`
+                        : `Permissão insuficiente (possível RLS/GRANT não configurado).\n\nExecute CREATE_SUPABASE_TABLE.sql no SQL Editor (inclui policy Allow all e GRANT).\n\nErro: ${errCode ? `(${errCode}) ` : ''}${errMsg}`;
+                    alert(tip);
+                    updateSyncStatus(chatContext.language === 'zh' ? '权限不足' : 'Sem permissão', 'error');
+                    return;
+                }
+
+                throw error;
             }
 
-            const errCode = error && (error.code || error.status || error.statusCode);
-            const errMsg = error && (error.message || error.error_description) ? (error.message || error.error_description) : String(error);
-            const lowerMsg = String(errMsg || '').toLowerCase();
-            const permissionIssue = lowerMsg.includes('row-level security')
-                || lowerMsg.includes('row level security')
-                || lowerMsg.includes('permission denied')
-                || String(errCode || '').includes('42501')
-                || String(errCode || '').includes('401')
-                || String(errCode || '').includes('403');
-            if (permissionIssue) {
-                const tip = chatContext.language === 'zh'
-                    ? `云端权限不足（可能是 RLS/GRANT 未配置）。\n\n请在 Supabase SQL Editor 执行 CREATE_SUPABASE_TABLE.sql（包含 Allow all policy 和 GRANT）。\n\n错误：${errCode ? `(${errCode}) ` : ''}${errMsg}`
-                    : `Permissão insuficiente (possível RLS/GRANT não configurado).\n\nExecute CREATE_SUPABASE_TABLE.sql no SQL Editor (inclui policy Allow all e GRANT).\n\nErro: ${errCode ? `(${errCode}) ` : ''}${errMsg}`;
-                alert(tip);
-                updateSyncStatus(chatContext.language === 'zh' ? '权限不足' : 'Sem permissão', 'error');
-                return;
+            console.log('Dados da nuvem:', data);
+
+            if (data && data.length > 0) {
+                cloudRecords = data.map(record => ({
+                    nf: record.nf,
+                    orderNumber: record.order_number,
+                    customerName: record.customer_name,
+                    amount: record.amount.toString(),
+                    orderDate: convertISOToDisplayDate(record.order_date),
+                    creditDays: record.credit_days.toString(),
+                    dueDate: convertISOToDisplayDate(record.due_date),
+                    status: record.status,
+                    notes: record.notes,
+                    paidAmount: record.paid_amount || 0,
+                    payments: record.payments || [],
+                    createdAt: record.created_at,
+                    updatedAt: record.updated_at
+                }));
+            } else {
+                cloudRecords = [];
             }
-            
-            throw error;
         }
-        
-        console.log('Dados da nuvem:', data);
-        
-        if (!data || data.length === 0) {
+
+        if (!cloudRecords || cloudRecords.length === 0) {
             showNotification(chatContext.language === 'zh' ? '云端没有数据' : 'Nenhum dado na nuvem', 'info');
             updateSyncStatus(chatContext.language === 'zh' ? '云端无数据' : 'Nuvem vazia', 'warning');
             return;
         }
-        
-        // 转换数据格式以匹配本地结构
-        const cloudRecords = data.map(record => ({
-            nf: record.nf,
-            orderNumber: record.order_number,
-            customerName: record.customer_name,
-            amount: record.amount.toString(),
-            orderDate: convertISOToDisplayDate(record.order_date),
-            creditDays: record.credit_days.toString(),
-            dueDate: convertISOToDisplayDate(record.due_date),
-            status: record.status,
-            notes: record.notes,
-            paidAmount: record.paid_amount || 0,
-            payments: record.payments || [],
-            createdAt: record.created_at,
-            updatedAt: record.updated_at
-        }));
         
         // 合并本地和云端数据，保留本地付款记录
         const existingLocalRecords = JSON.parse(localStorage.getItem('accountRecords')) || [];

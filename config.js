@@ -33,9 +33,18 @@ window.disableCloudSync = function () {
   window.location.reload();
 };
 
+window.enableNeonSync = function (syncToken) {
+  if (typeof syncToken === 'string' && syncToken.trim()) {
+    localStorage.setItem('CLOUD_SYNC_TOKEN', syncToken.trim());
+  }
+  localStorage.setItem('CLOUD_PROVIDER', 'neon');
+  window.location.reload();
+};
+
 window.clearCloudConfig = function () {
   localStorage.removeItem('CLOUD_SUPABASE_URL');
   localStorage.removeItem('CLOUD_SUPABASE_ANON_KEY');
+  localStorage.removeItem('CLOUD_SYNC_TOKEN');
   localStorage.removeItem('CLOUD_PROVIDER');
   window.location.reload();
 };
