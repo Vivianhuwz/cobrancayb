@@ -2,16 +2,7 @@
 
 // 客户数据
 // 注意：这些示例数据将被从收账记录中提取的真实数据替换
-let customers = [
-    {
-        id: 'CUST003',
-        name: 'AMERICA PRESENTES',
-        contact: '',
-        phone: '',
-        remark: '来自收账记录',
-        orders: []
-    }
-];
+let customers = [];
 
 // DOM元素引用
 let selectedCustomerId = null;
